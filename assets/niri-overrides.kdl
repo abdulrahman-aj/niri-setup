@@ -1,0 +1,40 @@
+input {
+    keyboard {
+        xkb {
+            layout "us,ara"
+            options "grp:alt_shift_toggle"
+        }
+        repeat-delay 200
+        repeat-rate 25
+    }
+}
+
+layout {
+    focus-ring {
+        off
+    }
+}
+
+switch-events {
+    lid-close {
+        spawn "dms" "ipc" "call" "lock" "lock";
+    }
+}
+
+window-rule {
+    match app-id="dev.zed.Zed"
+    open-maximized true
+}
+
+window-rule {
+    match app-id=r#"^(google-chrome|com.google.Chrome)$"#
+    open-maximized true
+}
+
+binds {
+    Mod+Q hotkey-overlay-title=null { spawn "true"; }
+    Mod+W repeat=false hotkey-overlay-title="Close Window" { close-window; }
+    Mod+Return hotkey-overlay-title="Open Terminal" { spawn "ghostty"; }
+    Mod+Shift+B hotkey-overlay-title="Open Browser" { spawn "google-chrome"; }
+    Mod+Shift+Alt+B hotkey-overlay-title="Open Browser Incognito" { spawn "google-chrome" "--incognito"; }
+}
