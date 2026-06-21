@@ -15,6 +15,7 @@ readonly DANKINSTALL_SHA256="75f9a528c54f9048baa7994fb701d3c5799bee62cf0c7082a69
 readonly NERD_FONT_VERSION="v3.4.0"
 readonly NERD_FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/${NERD_FONT_VERSION}/JetBrainsMono.tar.xz"
 readonly NERD_FONT_SHA256="ef552a3e638f25125c6ad4c51176a6adcdce295ab1d2ffacf0db060caf8c1582"
+readonly FISHER_BOOTSTRAP_URL="https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish"
 readonly BREW_BIN="/home/linuxbrew/.linuxbrew/bin/brew"
 
 REAL_USER=""

@@ -406,7 +406,7 @@ test_core_package_list_is_exact() {
 
 test_brew_owns_portable_cli_tools() {
     local formula
-    for formula in jq stow fd ripgrep tree-sitter-cli; do
+    for formula in jq stow fd ripgrep tree-sitter-cli bat; do
         [[ " ${BREW_FORMULAE[*]} " == *" $formula "* ]] || return 1
     done
     grep -Fq '$(brew_bin_dir)/jq' <<<"$(declare -f jq_cmd)" || return 1
@@ -433,13 +433,14 @@ test_workstation_dependency_order() {
         configure_git() { printf '%s\n' git >>"$calls"; }
         ensure_github_auth() { printf '%s\n' github >>"$calls"; }
         install_dotfiles() { printf '%s\n' dotfiles >>"$calls"; }
+        install_fish_plugins() { printf '%s\n' fish-plugins >>"$calls"; }
         install_mise_tools() { printf '%s\n' mise >>"$calls"; }
         install_docker() { printf '%s\n' docker >>"$calls"; }
         create_xdg_dirs() { printf '%s\n' dirs >>"$calls"; }
         set_graphical_target() { printf '%s\n' target >>"$calls"; }
         run_workstation_phase
     )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae launchers dms-settings greeter zed font terminal niri git github dotfiles mise docker dirs target ' ]]
+    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae launchers dms-settings greeter zed font terminal niri git github dotfiles fish-plugins mise docker dirs target ' ]]
     rm -f "$calls"
 }
 
@@ -478,6 +479,45 @@ test_niri_fish_completions_are_generated_safely() {
     rm -rf "$home"
 }
 
+test_fish_config_symlink_is_migrated_without_losing_state() {
+    local home dotdir config
+    home="$(mktemp -d)"
+    dotdir="$home/.dotfiles"
+    config="$home/.config/fish"
+    mkdir -p "$dotdir/fish/.config/fish" "$home/.config"
+    printf 'SETUVAR test:value\n' >"$dotdir/fish/.config/fish/fish_variables"
+    ln -s ../.dotfiles/fish/.config/fish "$config"
+    ( REAL_HOME="$home"; prepare_fish_config_directory "$dotdir" ) || return 1
+    [[ -d "$config" && ! -L "$config" ]] || return 1
+    grep -Fxq 'SETUVAR test:value' "$config/fish_variables"
+    rm -rf "$home"
+}
+
+test_fisher_updates_plugins_and_removes_legacy_install() {
+    local home calls
+    home="$(mktemp -d)"
+    calls="$(mktemp)"
+    mkdir -p "$home/.local/share/fish/niri-setup/fzf.fish" "$home/.local/share/fish/vendor_conf.d"
+    touch "$home/.local/share/fish/vendor_conf.d/niri-setup-fzf.fish"
+    (
+        REAL_HOME="$home"
+        curl() {
+            local previous='' arg output
+            for arg in "$@"; do
+                [[ "$previous" == -o ]] && output=$arg
+                previous=$arg
+            done
+            printf 'function fisher\nend\n' >"$output"
+        }
+        system_fish_cmd() { printf '%s\n' "$*" >>"$calls"; }
+        install_fish_plugins
+    ) &>/dev/null || return 1
+    grep -Fq 'fisher update' "$calls" || return 1
+    [[ ! -e "$home/.local/share/fish/niri-setup/fzf.fish" ]] || return 1
+    [[ ! -e "$home/.local/share/fish/vendor_conf.d/niri-setup-fzf.fish" ]] || return 1
+    rm -rf "$home" "$calls"
+}
+
 test_debloat_allowlist_only() {
     local actual
     actual="$({
@@ -500,11 +540,11 @@ test_brew_installs_only_missing_formulae() {
     calls="$(mktemp)"
     (
         brew_cmd() {
-            if [[ "$1" == list ]]; then [[ "$3" != fzf && "$3" != gh && "$3" != tlrc && "$3" != zoxide && "$3" != jq && "$3" != stow && "$3" != fd && "$3" != tree-sitter-cli ]]; else printf '%s\n' "$*" >>"$calls"; fi
+            if [[ "$1" == list ]]; then [[ "$3" != fzf && "$3" != bat && "$3" != gh && "$3" != tlrc && "$3" != zoxide && "$3" != jq && "$3" != stow && "$3" != fd && "$3" != tree-sitter-cli ]]; else printf '%s\n' "$*" >>"$calls"; fi
         }
         install_brew_formulae
     )
-    grep -Fxq 'install fzf gh tlrc zoxide jq stow fd tree-sitter-cli' "$calls"
+    grep -Fxq 'install fzf bat gh tlrc zoxide jq stow fd tree-sitter-cli' "$calls"
     : >"$calls"
     (
         brew_cmd() {
@@ -978,6 +1018,7 @@ test_fish_brew_initialization_must_precede_prefix() {
     local dotdir before
     dotdir="$(mktemp -d)"
     mkdir -p "$dotdir/fish/.config/fish"
+    printf 'jorgebucaran/fisher\nPatrickF1/fzf.fish\n' >"$dotdir/fish/.config/fish/fish_plugins"
     printf '%s\n' \
         'eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)' \
         'mise activate fish | source' \
@@ -993,10 +1034,12 @@ test_fish_brew_initialization_must_precede_prefix() {
 }
 
 test_dotfile_install_does_not_edit_checkout() {
-    local home config before
+    local home config before calls
     home="$(mktemp -d)"
+    calls="$(mktemp)"
     config="$home/.dotfiles/fish/.config/fish/config.fish"
     mkdir -p "$(dirname "$config")" "$home/.dotfiles/zed"
+    printf 'jorgebucaran/fisher\nPatrickF1/fzf.fish\n' >"$(dirname "$config")/fish_plugins"
     printf '%s\n' \
         'eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)' \
         'mise activate fish | source' \
@@ -1008,11 +1051,13 @@ test_dotfile_install_does_not_edit_checkout() {
         REAL_USER=tester
         validate_existing_dotfiles() { :; }
         stow_cmd() { return 0; }
-        getent() { printf 'tester:x:1000:1000::%s:%s\n' "$home" "$(command -v fish)"; }
+        getent() { printf 'tester:x:1000:1000::%s:/bin/bash\n' "$home"; }
+        s() { printf '%s\n' "$*" >>"$calls"; }
         install_dotfiles
     )
     [[ "$before" == "$(sha256sum "$config")" ]]
-    rm -rf "$home"
+    grep -Fxq 'chsh -s /usr/bin/fish tester' "$calls"
+    rm -rf "$home" "$calls"
 }
 
 test_nerd_font_discovery_is_exact() {
@@ -1237,6 +1282,8 @@ run_test "core package list contains only agreed essentials" test_core_package_l
 run_test "portable CLI tools are provided by Homebrew" test_brew_owns_portable_cli_tools
 run_test "Homebrew tools precede their workstation consumers" test_workstation_dependency_order
 run_test "Niri Fish completions are generated outside dotfiles" test_niri_fish_completions_are_generated_safely
+run_test "Fish config symlink migration preserves local state" test_fish_config_symlink_is_migrated_without_losing_state
+run_test "Fisher updates plugins and removes the legacy install" test_fisher_updates_plugins_and_removes_legacy_install
 run_test "Brew installs only missing formulae" test_brew_installs_only_missing_formulae
 run_test "Mise installs only missing global tools" test_mise_installs_only_missing_tools
 run_test "failed GitHub login is fatal" test_github_failed_login_is_fatal

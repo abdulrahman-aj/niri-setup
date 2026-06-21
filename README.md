@@ -21,7 +21,7 @@ graphics, and an internet connection.
 - Enables the DMS and DankLinux COPRs, installs Niri, DMS, Ghostty, Zed,
   JetBrainsMono Nerd Font, Homebrew, developer CLI tools, and rootful Docker
   CE.
-- Sets Chrome as the default browser, Ghostty as the XDG terminal, Fish as the
+- Sets Chrome as the default browser, Ghostty as the XDG terminal, Fedora Fish as the
   login shell, and `graphical.target` as the default target.
 - Configures Git, requires GitHub CLI auth over SSH, clones or validates
   `~/.dotfiles`, and stows only `fish` and `zed`.
@@ -41,7 +41,8 @@ The installer uses
 [`abdulrahman-aj/dotfiles`](https://github.com/abdulrahman-aj/dotfiles). Its
 Fish configuration must evaluate
 `/home/linuxbrew/.linuxbrew/bin/brew shellenv` before its first `brew --prefix`
-use. Commit and push that change before bootstrapping a fresh machine.
+use, track `fish_plugins`, and leave `fish_variables` untracked. Commit and push
+those changes before bootstrapping a fresh machine.
 
 ## Install
 
@@ -83,12 +84,15 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
 
 ## Installed behavior
 
-- Homebrew installs Starship, lazygit, lazydocker, fzf, ripgrep, GitHub CLI,
+- Homebrew installs Starship, lazygit, lazydocker, fzf, bat, ripgrep, GitHub CLI,
   Mise, Zoxide, `tlrc`, jq, Stow, and fd. Mise installs OpenCode, Codex, and
   Claude Code.
 - Fish and Zed configuration comes from the dotfiles repo. Fish includes your
-  Zoxide-backed `cd` behavior; generated Niri completions are installed in
-  Fish's user data directory outside the dotfiles checkout.
+  Zoxide-backed `cd` behavior. Fisher installs the plugins tracked in
+  `fish_plugins`, including `fzf.fish`; generated plugin files, universal
+  variables, and Niri completions remain outside the dotfiles checkout.
+- Add plugins with `fisher install owner/repository`. Commit only the resulting
+  `fish_plugins` manifest when the plugin should follow you to other machines.
 - The local Niri override enables US/Arabic layout switching with `Alt+Shift`,
   repeat delay `200`, repeat rate `25`, DMS lock on lid close, maximized
   Zed/Chrome windows, `Mod+W` close, `Mod+Return` Ghostty, and Chrome normal
