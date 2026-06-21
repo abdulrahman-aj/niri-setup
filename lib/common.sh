@@ -161,6 +161,23 @@ install_file_atomically_with_backup() {
     fi
 }
 
+install_generated_file_atomically() {
+    local source_file=$1 destination=$2 mode=${3:-0644} staged
+    mkdir -p "$(dirname "$destination")"
+    if [[ -f "$destination" ]] && cmp -s "$source_file" "$destination"; then
+        return 0
+    fi
+    staged="$(mktemp "${destination}.tmp.XXXXXX")"
+    if ! install -m "$mode" "$source_file" "$staged"; then
+        rm -f "$staged"
+        return 1
+    fi
+    if ! mv -f "$staged" "$destination"; then
+        rm -f "$staged"
+        return 1
+    fi
+}
+
 install_root_file_with_backup() {
     local source_file=$1 destination=$2 mode=${3:-0644} backup
     if sudo test -f "$destination" && sudo cmp -s "$source_file" "$destination"; then

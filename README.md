@@ -87,7 +87,8 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
   Mise, Zoxide, `tlrc`, jq, Stow, and fd. Mise installs OpenCode, Codex, and
   Claude Code.
 - Fish and Zed configuration comes from the dotfiles repo. Fish includes your
-  Zoxide-backed `cd` behavior.
+  Zoxide-backed `cd` behavior; generated Niri completions are installed in
+  Fish's user data directory outside the dotfiles checkout.
 - The local Niri override enables US/Arabic layout switching with `Alt+Shift`,
   repeat delay `200`, repeat rate `25`, DMS lock on lid close, maximized
   Zed/Chrome windows, `Mod+W` close, `Mod+Return` Ghostty, and Chrome normal

@@ -68,6 +68,23 @@ install_core_packages() {
     install_required_group "workstation essentials" "${CORE_PACKAGES[@]}"
 }
 
+install_niri_fish_completions() {
+    local destination="${NIRI_FISH_COMPLETION_FILE:-$REAL_HOME/.local/share/fish/vendor_completions.d/niri.fish}"
+    local generated
+    generated="$(mktemp)"
+    trap 'rm -f "${generated:-}"; trap - RETURN' RETURN
+    niri completions fish >"$generated" || {
+        err "Failed to generate Niri Fish completions."
+        return 1
+    }
+    if [[ ! -s "$generated" ]] || ! grep -Fq 'complete -c niri' "$generated" || ! fish -n "$generated"; then
+        err "Generated Niri Fish completions are invalid."
+        return 1
+    fi
+    install_generated_file_atomically "$generated" "$destination"
+    log "Niri Fish completions installed"
+}
+
 zed_present() { have_command zed || [[ -x "$REAL_HOME/.local/bin/zed" ]]; }
 
 install_zed() {
@@ -328,6 +345,7 @@ run_workstation_phase() {
     step "Core workstation"
     run_dankinstall
     install_core_packages
+    install_niri_fish_completions
     install_homebrew
     install_brew_formulae
     configure_launch_or_focus

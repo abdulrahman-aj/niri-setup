@@ -417,6 +417,7 @@ test_workstation_dependency_order() {
         step() { :; }
         run_dankinstall() { printf '%s\n' dank >>"$calls"; }
         install_core_packages() { printf '%s\n' core >>"$calls"; }
+        install_niri_fish_completions() { printf '%s\n' completions >>"$calls"; }
         install_homebrew() { printf '%s\n' brew >>"$calls"; }
         install_brew_formulae() { printf '%s\n' formulae >>"$calls"; }
         configure_launch_or_focus() { printf '%s\n' launchers >>"$calls"; }
@@ -435,8 +436,43 @@ test_workstation_dependency_order() {
         set_graphical_target() { printf '%s\n' target >>"$calls"; }
         run_workstation_phase
     )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core brew formulae launchers dms-settings greeter zed font terminal niri git github dotfiles mise docker dirs target ' ]]
+    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae launchers dms-settings greeter zed font terminal niri git github dotfiles mise docker dirs target ' ]]
     rm -f "$calls"
+}
+
+test_niri_fish_completions_are_generated_safely() {
+    local home destination inode digest
+    home="$(mktemp -d)"
+    destination="$home/.local/share/fish/vendor_completions.d/niri.fish"
+    mkdir -p "$home/.dotfiles/fish/.config/fish"
+    (
+        REAL_HOME="$home"
+        niri() {
+            [[ "$1 $2" == 'completions fish' ]] || return 1
+            printf 'complete -c niri -a msg\n'
+        }
+        install_niri_fish_completions
+    ) &>/dev/null || return 1
+    [[ -f "$destination" ]] || return 1
+    fish -n "$destination" || return 1
+    [[ ! -e "$home/.dotfiles/fish/.config/fish/completions/niri.fish" ]] || return 1
+    inode="$(stat -c '%i' "$destination")"
+    (
+        REAL_HOME="$home"
+        niri() { printf 'complete -c niri -a msg\n'; }
+        install_niri_fish_completions
+    ) &>/dev/null || return 1
+    [[ "$(stat -c '%i' "$destination")" == "$inode" ]] || return 1
+    digest="$(sha256sum "$destination")"
+    if (
+        REAL_HOME="$home"
+        niri() { printf 'not a completion\n'; }
+        install_niri_fish_completions
+    ) &>/dev/null; then
+        return 1
+    fi
+    [[ "$(sha256sum "$destination")" == "$digest" ]] || return 1
+    rm -rf "$home"
 }
 
 test_debloat_allowlist_only() {
@@ -1156,6 +1192,7 @@ run_test "debloat is a no-op when selected packages are absent" test_debloat_noo
 run_test "core package list contains only agreed essentials" test_core_package_list_is_exact
 run_test "portable CLI tools are provided by Homebrew" test_brew_owns_portable_cli_tools
 run_test "Homebrew tools precede their workstation consumers" test_workstation_dependency_order
+run_test "Niri Fish completions are generated outside dotfiles" test_niri_fish_completions_are_generated_safely
 run_test "Brew installs only missing formulae" test_brew_installs_only_missing_formulae
 run_test "Mise installs only missing global tools" test_mise_installs_only_missing_tools
 run_test "failed GitHub login is fatal" test_github_failed_login_is_fatal
