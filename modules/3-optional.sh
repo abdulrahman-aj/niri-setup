@@ -16,8 +16,14 @@ kickstart_is_expected() {
 }
 
 install_kickstart() {
-    local config="$REAL_HOME/.config/nvim" stamp path backup_root
-    install_required_group "Kickstart.nvim prerequisites" gcc make git ripgrep tree-sitter-cli unzip neovim
+    local config="$REAL_HOME/.config/nvim" stamp path backup_root tool
+    install_required_group "Kickstart.nvim prerequisites" gcc make git unzip neovim
+    for tool in rg fd tree-sitter; do
+        brew_tool_present "$tool" || {
+            err "Kickstart.nvim requires the Homebrew tool: ${tool}"
+            return 1
+        }
+    done
     if ! kickstart_is_expected "$config"; then
         stamp="$(timestamp)"
         backup_root="$REAL_HOME/.nvim-backup-$stamp"
@@ -29,19 +35,15 @@ install_kickstart() {
         done
         git clone https://github.com/nvim-lua/kickstart.nvim.git "$config"
     fi
-    nvim --headless '+qa'
+    PATH="$(brew_bin_dir):$PATH" nvim --headless '+qa'
 }
 
 offer_kickstart() {
-    if ! stdin_is_tty; then
-        info "Non-interactive input: skipping Kickstart.nvim"
+    if stdin_is_tty && ! prompt_default_yes 'Install Kickstart.nvim? [Y/n]'; then
         OPTIONAL_SKIPPED+=("Kickstart.nvim")
         return 0
     fi
-    if ! prompt_default_yes 'Install Kickstart.nvim? [Y/n]'; then
-        OPTIONAL_SKIPPED+=("Kickstart.nvim")
-        return 0
-    fi
+    stdin_is_tty || info "Non-interactive input: installing Kickstart.nvim (default: yes)"
     if ! install_kickstart; then
         warn "Optional Kickstart.nvim installation failed"
         OPTIONAL_FAILURES+=("Kickstart.nvim")

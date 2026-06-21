@@ -118,8 +118,9 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
 ## Optional prompts
 
 Interactive runs offer Kickstart.nvim and the third-party CodexBar and
-Wallpaper Discovery DMS plugins. Both prompts default to yes; non-interactive
-runs skip them. Optional failures do not fail the core setup.
+Wallpaper Discovery DMS plugins. Both prompts default to yes. Non-interactive
+runs install Kickstart and skip the DMS plugins. Optional failures do not fail
+the core setup.
 
 ## After installation
 

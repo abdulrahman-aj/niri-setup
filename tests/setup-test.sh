@@ -405,9 +405,12 @@ test_core_package_list_is_exact() {
 }
 
 test_brew_owns_portable_cli_tools() {
-    [[ " ${BREW_FORMULAE[*]} " == *' jq stow fd '* ]]
-    grep -Fq '$(dirname "$BREW_BIN")/jq' <<<"$(declare -f jq_cmd)" || return 1
-    grep -Fq '$(dirname "$BREW_BIN")/stow' <<<"$(declare -f stow_cmd)"
+    local formula
+    for formula in jq stow fd ripgrep tree-sitter-cli; do
+        [[ " ${BREW_FORMULAE[*]} " == *" $formula "* ]] || return 1
+    done
+    grep -Fq '$(brew_bin_dir)/jq' <<<"$(declare -f jq_cmd)" || return 1
+    grep -Fq '$(brew_bin_dir)/stow' <<<"$(declare -f stow_cmd)"
 }
 
 test_workstation_dependency_order() {
@@ -497,11 +500,11 @@ test_brew_installs_only_missing_formulae() {
     calls="$(mktemp)"
     (
         brew_cmd() {
-            if [[ "$1" == list ]]; then [[ "$3" != fzf && "$3" != gh && "$3" != tlrc && "$3" != zoxide && "$3" != jq && "$3" != stow && "$3" != fd ]]; else printf '%s\n' "$*" >>"$calls"; fi
+            if [[ "$1" == list ]]; then [[ "$3" != fzf && "$3" != gh && "$3" != tlrc && "$3" != zoxide && "$3" != jq && "$3" != stow && "$3" != fd && "$3" != tree-sitter-cli ]]; else printf '%s\n' "$*" >>"$calls"; fi
         }
         install_brew_formulae
     )
-    grep -Fxq 'install fzf gh tlrc zoxide jq stow fd' "$calls"
+    grep -Fxq 'install fzf gh tlrc zoxide jq stow fd tree-sitter-cli' "$calls"
     : >"$calls"
     (
         brew_cmd() {
@@ -1086,16 +1089,49 @@ test_xdg_terminal_selects_ghostty() {
     rm -rf "$home"
 }
 
-test_optional_features_skip_non_tty() {
+test_non_tty_installs_kickstart_and_skips_plugins() {
+    local calls
+    calls="$(mktemp)"
     (
         OPTIONAL_SKIPPED=()
+        OPTIONAL_FAILURES=()
         stdin_is_tty() { return 1; }
-        install_kickstart() { return 1; }
+        install_kickstart() { printf 'kickstart\n' >>"$calls"; }
         install_optional_dms_plugins() { return 1; }
         offer_kickstart
         offer_dms_plugins
-        [[ "${OPTIONAL_SKIPPED[*]}" == 'Kickstart.nvim DMS plugins' ]]
-    ) &>/dev/null
+        [[ "${OPTIONAL_SKIPPED[*]}" == 'DMS plugins' ]]
+        [[ "${#OPTIONAL_FAILURES[@]}" -eq 0 ]]
+    ) &>/dev/null || return 1
+    [[ "$(cat "$calls")" == kickstart ]] || return 1
+    rm -f "$calls"
+}
+
+test_kickstart_dependencies_are_split_and_exposed() {
+    local home calls
+    home="$(mktemp -d)"
+    calls="$(mktemp)"
+    mkdir -p "$home/.config/nvim/.git"
+    (
+        REAL_HOME="$home"
+        install_required_group() { printf 'dnf:%s\n' "$*" >>"$calls"; }
+        kickstart_is_expected() { return 0; }
+        brew_tool_present() { [[ "$1" == rg || "$1" == fd || "$1" == tree-sitter ]]; }
+        brew_bin_dir() { printf '/brew/bin\n'; }
+        nvim() { printf 'nvim:%s:path=%s\n' "$*" "$PATH" >>"$calls"; }
+        install_kickstart
+    ) &>/dev/null || return 1
+    grep -Fxq 'dnf:Kickstart.nvim prerequisites gcc make git unzip neovim' "$calls" || return 1
+    grep -Fq 'nvim:--headless +qa:path=/brew/bin:' "$calls" || return 1
+    if (
+        REAL_HOME="$home"
+        install_required_group() { :; }
+        brew_tool_present() { [[ "$1" != tree-sitter ]]; }
+        install_kickstart
+    ) &>/dev/null; then
+        return 1
+    fi
+    rm -rf "$home" "$calls"
 }
 
 test_default_yes_prompt_semantics() {
@@ -1231,7 +1267,8 @@ run_test "Niri override include is last and idempotent" test_niri_include_is_las
 run_test "failed Niri validation restores managed files" test_niri_validation_failure_rolls_back
 run_test "successful Niri configuration leaves outputs untouched" test_niri_success_does_not_touch_outputs
 run_test "Ghostty is selected through xdg-terminal-exec" test_xdg_terminal_selects_ghostty
-run_test "non-TTY optional setup is skipped" test_optional_features_skip_non_tty
+run_test "non-TTY setup installs Kickstart and skips DMS plugins" test_non_tty_installs_kickstart_and_skips_plugins
+run_test "Kickstart dependencies are split between Fedora and Homebrew" test_kickstart_dependencies_are_split_and_exposed
 run_test "optional prompts default to yes" test_default_yes_prompt_semantics
 run_test "optional prompt text is exact" test_optional_prompt_text_is_exact
 run_test "Kickstart failure does not fail core setup" test_kickstart_failure_is_nonfatal

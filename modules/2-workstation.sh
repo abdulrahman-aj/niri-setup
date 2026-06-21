@@ -4,7 +4,7 @@ readonly CORE_PACKAGES=(
     xwayland-satellite libva-intel-driver intel-media-driver
     xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish
 )
-readonly BREW_FORMULAE=(starship lazygit lazydocker fzf ripgrep gh mise tlrc zoxide jq stow fd)
+readonly BREW_FORMULAE=(starship lazygit lazydocker fzf ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli)
 readonly MISE_TOOLS=(opencode codex claude-code)
 
 core_stack_complete() { have_command dms && have_command niri && have_command ghostty; }
@@ -177,10 +177,12 @@ run_homebrew_installer() {
 }
 
 brew_cmd() { "$BREW_BIN" "$@"; }
-gh_cmd() { "$(dirname "$BREW_BIN")/gh" "$@"; }
-mise_cmd() { "$(dirname "$BREW_BIN")/mise" "$@"; }
-jq_cmd() { "$(dirname "$BREW_BIN")/jq" "$@"; }
-stow_cmd() { "$(dirname "$BREW_BIN")/stow" "$@"; }
+brew_bin_dir() { dirname "$BREW_BIN"; }
+brew_tool_present() { [[ -x "$(brew_bin_dir)/$1" ]]; }
+gh_cmd() { "$(brew_bin_dir)/gh" "$@"; }
+mise_cmd() { "$(brew_bin_dir)/mise" "$@"; }
+jq_cmd() { "$(brew_bin_dir)/jq" "$@"; }
+stow_cmd() { "$(brew_bin_dir)/stow" "$@"; }
 
 install_homebrew() {
     local bashrc line generated
