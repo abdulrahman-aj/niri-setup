@@ -200,7 +200,11 @@ ensure_github_auth() {
     local protocol
     gh_cmd auth status &>/dev/null || BROWSER=google-chrome gh_cmd auth login --web --git-protocol ssh
     gh_cmd auth status &>/dev/null || { err "GitHub authentication is not healthy."; return 1; }
-    protocol="$(gh_cmd config get git_protocol)"
+    gh_cmd config set git_protocol ssh --host github.com || {
+        err "Failed to configure GitHub CLI to use SSH."
+        return 1
+    }
+    protocol="$(gh_cmd config get git_protocol --host github.com)"
     [[ "$protocol" == ssh ]] || { err "GitHub CLI git protocol is not SSH."; return 1; }
 }
 

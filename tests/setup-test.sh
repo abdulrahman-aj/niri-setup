@@ -489,6 +489,25 @@ test_github_failed_login_is_fatal() {
     ) &>/dev/null
 }
 
+test_github_protocol_is_explicitly_set_to_ssh() {
+    local calls protocol=https
+    calls="$(mktemp)"
+    (
+        gh_cmd() {
+            printf '%s\n' "$*" >>"$calls"
+            case "$*" in
+                'auth status') return 0 ;;
+                'config set git_protocol ssh --host github.com') protocol=ssh ;;
+                'config get git_protocol --host github.com') printf '%s\n' "$protocol" ;;
+            esac
+        }
+        ensure_github_auth
+    ) &>/dev/null || return 1
+    grep -Fxq 'config set git_protocol ssh --host github.com' "$calls"
+    grep -Fxq 'config get git_protocol --host github.com' "$calls"
+    rm -f "$calls"
+}
+
 test_docker_configures_repo_service_and_group() {
     local calls home
     calls="$(mktemp)"; home="$(mktemp -d)"
@@ -993,6 +1012,7 @@ run_test "Homebrew tools precede their workstation consumers" test_workstation_d
 run_test "Brew installs only missing formulae" test_brew_installs_only_missing_formulae
 run_test "Mise installs only missing global tools" test_mise_installs_only_missing_tools
 run_test "failed GitHub login is fatal" test_github_failed_login_is_fatal
+run_test "GitHub CLI protocol is explicitly set to SSH" test_github_protocol_is_explicitly_set_to_ssh
 run_test "Docker is installed for on-demand use" test_docker_configures_repo_service_and_group
 run_test "Docker toggle changes daemon state safely" test_docker_toggle_helper_transitions
 run_test "Docker toggle DMS plugin has expected actions" test_docker_toggle_plugin_contract
