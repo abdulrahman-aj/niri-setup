@@ -1,0 +1,10 @@
+[
+  {"id":"notion","name":"Notion","url":"https://www.notion.so","domain":"notion.so"},
+  {"id":"reddit","name":"Reddit","url":"https://www.reddit.com","domain":"reddit.com"},
+  {"id":"google-calendar","name":"Google Calendar","url":"https://calendar.google.com","domain":"calendar.google.com"},
+  {"id":"chatgpt","name":"ChatGPT","url":"https://chatgpt.com","domain":"chatgpt.com"},
+  {"id":"youtube","name":"YouTube","url":"https://www.youtube.com","domain":"youtube.com"},
+  {"id":"youtube-music","name":"YouTube Music","url":"https://music.youtube.com","domain":"music.youtube.com"},
+  {"id":"gmail","name":"Gmail","url":"https://mail.google.com","domain":"mail.google.com"},
+  {"id":"discord","name":"Discord","url":"https://discord.com/app","domain":"discord.com"}
+]

@@ -190,6 +190,51 @@ install_brew_formulae() {
     ((${#missing[@]})) && brew_cmd install "${missing[@]}"
 }
 
+configure_launch_or_focus() {
+    local manifest="$ROOT_DIR/assets/webapps.json"
+    local applications="$REAL_HOME/.local/share/applications"
+    local icons="$REAL_HOME/.local/share/icons/hicolor/128x128/apps"
+    local tempdir id name url domain icon_name icon_file desktop generated_icon
+    jq_cmd -e 'type == "array" and all(.[]; (.id | type == "string") and (.name | type == "string") and (.url | type == "string") and (.domain | type == "string"))' \
+        "$manifest" &>/dev/null || { err "Invalid web-app manifest: ${manifest}"; return 1; }
+    install_root_symlink_with_backup "$ROOT_DIR/assets/launch-or-focus" /usr/local/bin/launch-or-focus
+    mkdir -p "$applications" "$icons"
+    tempdir="$(mktemp -d)"
+    trap 'rm -rf "${tempdir:-}"; trap - RETURN' RETURN
+    while IFS=$'\t' read -r id name url domain; do
+        [[ "$id" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ && "$url" == https://* && "$domain" != *[!A-Za-z0-9.-]* ]] || {
+            err "Invalid web-app manifest entry: ${id:-missing-id}"
+            return 1
+        }
+        icon_name="niri-webapp-$id"
+        icon_file="$icons/$icon_name.png"
+        if [[ ! -s "$icon_file" ]]; then
+            generated_icon="$tempdir/$icon_name.png"
+            if curl -fsSL --retry 2 "https://www.google.com/s2/favicons?domain=$domain&sz=128" -o "$generated_icon" && [[ -s "$generated_icon" ]]; then
+                install_file_atomically_with_backup "$generated_icon" "$icon_file"
+            else
+                warn "Could not download ${name} icon; using the Chrome icon"
+                icon_name=google-chrome
+            fi
+        fi
+        desktop="$tempdir/niri-webapp-$id.desktop"
+        printf '%s\n' \
+            '[Desktop Entry]' \
+            'Version=1.0' \
+            'Type=Application' \
+            "Name=$name" \
+            "Exec=/usr/local/bin/launch-or-focus webapp $id $url" \
+            "Icon=$icon_name" \
+            "StartupWMClass=niri-webapp-$id" \
+            'Terminal=false' \
+            'Categories=Network;WebBrowser;' \
+            >"$desktop"
+        install_file_atomically_with_backup "$desktop" "$applications/niri-webapp-$id.desktop"
+    done < <(jq_cmd -r '.[] | [.id, .name, .url, .domain] | @tsv' "$manifest")
+    have_command update-desktop-database && update-desktop-database "$applications"
+    log "Launch-or-focus helpers and web-app launchers configured"
+}
+
 configure_git() {
     git config --global init.defaultBranch main
     git config --global user.name 'Abdulrahman Ajlouni'
@@ -285,6 +330,7 @@ run_workstation_phase() {
     install_core_packages
     install_homebrew
     install_brew_formulae
+    configure_launch_or_focus
     apply_dms_settings_override
     install_dms_greeter
     install_zed

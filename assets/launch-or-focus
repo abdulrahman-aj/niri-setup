@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2016 # jq programs intentionally use jq variables in single quotes.
+
+set -euo pipefail
+
+readonly NIRI=${NIRI:-/usr/bin/niri}
+readonly JQ=${JQ:-/home/linuxbrew/.linuxbrew/bin/jq}
+readonly TERMINAL_EXEC=${TERMINAL_EXEC:-/usr/bin/xdg-terminal-exec}
+readonly CHROME=${CHROME:-/usr/bin/google-chrome}
+readonly SETSID=${SETSID:-/usr/bin/setsid}
+readonly FLOCK=${FLOCK:-/usr/bin/flock}
+readonly STATE_ROOT="${LAUNCH_OR_FOCUS_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp/launch-or-focus-$UID}/launch-or-focus}"
+
+usage() {
+    printf '%s\n' \
+        'Usage:' \
+        '  launch-or-focus app <app-id> -- <command> [arguments...]' \
+        '  launch-or-focus webapp <key> <url>' \
+        '  launch-or-focus tui -- <command> [arguments...]' >&2
+    exit 2
+}
+
+windows() { "$NIRI" msg -j windows; }
+
+focus_window() {
+    [[ "$1" =~ ^[0-9]+$ ]] || return 1
+    "$NIRI" msg action focus-window --id "$1" >/dev/null
+}
+
+window_exists() {
+    windows | "$JQ" -e --argjson id "$1" 'any(.[]; .id == $id)' >/dev/null
+}
+
+find_app_window() {
+    windows | "$JQ" -r --arg app_id "$1" \
+        '[.[] | select(.app_id == $app_id)] | (map(select(.is_focused)) + .)[0].id // empty'
+}
+
+detach() {
+    "$SETSID" -f -- "$@" >/dev/null 2>&1
+}
+
+launch_app() {
+    (($# >= 3)) || usage
+    local app_id=$1 id
+    shift
+    [[ "$1" == -- ]] || usage
+    shift
+    (($#)) || usage
+    id="$(find_app_window "$app_id")"
+    if [[ -n "$id" ]]; then
+        focus_window "$id"
+    else
+        detach "$@"
+    fi
+}
+
+new_window_id() {
+    local before=$1 expected_app_id=$2 current
+    current="$(windows)"
+    "$JQ" -r --argjson before "$before" --arg app_id "$expected_app_id" '
+        [.[] | select(.id as $id | ($before | map(.id) | index($id) | not))] as $new
+        | (($new | map(select(.is_focused))) + ($new | map(select(.app_id == $app_id))) + $new)[0].id // empty
+    ' <<<"$current"
+}
+
+launch_webapp() {
+    (($# == 2)) || usage
+    local key=$1 url=$2 expected_app_id id before state_file lock_file attempt
+    [[ "$key" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { printf 'Invalid web-app key: %s\n' "$key" >&2; return 2; }
+    [[ "$url" == https://* ]] || { printf 'Web-app URL must use HTTPS: %s\n' "$url" >&2; return 2; }
+    expected_app_id="niri-webapp-$key"
+    mkdir -p "$STATE_ROOT"
+    chmod 0700 "$STATE_ROOT"
+    state_file="$STATE_ROOT/webapp-$key.window-id"
+    lock_file="$STATE_ROOT/webapp-$key.lock"
+    exec 9>"$lock_file"
+    "$FLOCK" 9
+
+    if [[ -f "$state_file" ]]; then
+        read -r id <"$state_file" || id=""
+        if [[ "$id" =~ ^[0-9]+$ ]] && window_exists "$id"; then
+            focus_window "$id"
+            return
+        fi
+        rm -f "$state_file"
+    fi
+
+    id="$(find_app_window "$expected_app_id")"
+    if [[ -n "$id" ]]; then
+        printf '%s\n' "$id" >"$state_file"
+        focus_window "$id"
+        return
+    fi
+
+    before="$(windows)"
+    detach "$CHROME" "--app=$url" "--class=$expected_app_id"
+    for ((attempt = 0; attempt < 50; attempt++)); do
+        sleep 0.1
+        id="$(new_window_id "$before" "$expected_app_id")"
+        if [[ -n "$id" ]]; then
+            printf '%s\n' "$id" >"$state_file"
+            return
+        fi
+    done
+    printf 'Launched web app but could not identify its Niri window: %s\n' "$key" >&2
+    return 1
+}
+
+launch_tui() {
+    (($# >= 2)) || usage
+    [[ "$1" == -- ]] || usage
+    shift
+    local name hash app_id id
+    name="$(basename "$1" | tr '[:upper:]_' '[:lower:]-' | sed 's/[^a-z0-9-]//g; s/^-*//; s/-*$//')"
+    [[ -n "$name" ]] || name=tui
+    hash="$(printf '%s\0' "$@" | sha256sum | cut -c1-12)"
+    app_id="local.tui.$name.$hash"
+    id="$(find_app_window "$app_id")"
+    if [[ -n "$id" ]]; then
+        focus_window "$id"
+    else
+        detach "$TERMINAL_EXEC" "--app-id=$app_id" -- "$@"
+    fi
+}
+
+case "${1:-}" in
+    app) shift; launch_app "$@" ;;
+    webapp) shift; launch_webapp "$@" ;;
+    tui) shift; launch_tui "$@" ;;
+    *) usage ;;
+esac

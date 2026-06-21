@@ -27,8 +27,10 @@ graphics, and an internet connection.
   `~/.dotfiles`, and stows only `fish` and `zed`.
 - Installs a local `dockerToggle` DMS plugin and keeps Docker disabled until
   explicitly started.
-- Symlinks managed Niri and DMS assets from this repo, backing up replaced
-  files with timestamped `.backup-*` names.
+- Installs Niri-native launch-or-focus helpers and named Chrome web-app
+  launchers for DMS search and application menus.
+- Symlinks managed Niri, helper, and DMS assets from this repo, backing up
+  replaced files with timestamped `.backup-*` names.
 
 The setup is intended to be rerunnable. Each run still performs a system
 upgrade and disables/stops Docker again to restore the expected default state.
@@ -90,8 +92,27 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
   repeat delay `200`, repeat rate `25`, DMS lock on lid close, maximized
   Zed/Chrome windows, `Mod+W` close, `Mod+Return` Ghostty, and Chrome normal
   and incognito on `Mod+Shift+B` and `Mod+Shift+Alt+B`.
+- Web apps open as Chrome app windows and focus their existing Niri window on
+  subsequent launches. Their downloaded favicons fall back to Chrome's icon if
+  unavailable.
 - The `dockerToggle` DMS widget shows a Docker icon, toggles the daemon on
-  left-click, and opens lazydocker without starting Docker on right-click.
+  left-click, and opens or focuses lazydocker without starting Docker on
+  right-click.
+
+### Launch-or-focus shortcuts
+
+| Shortcut | Application |
+| --- | --- |
+| `Mod+Shift+N` | Notion |
+| `Mod+Shift+R` | Reddit |
+| `Mod+Shift+C` | Google Calendar |
+| `Mod+Shift+A` | ChatGPT |
+| `Mod+Shift+Y` | YouTube |
+| `Mod+Shift+M` | YouTube Music |
+| `Mod+Shift+G` | Gmail |
+| `Mod+Shift+D` | Discord |
+| `Mod+Shift+Z` | Zed |
+| `Mod+Shift+E` | Files |
 
 ## Optional prompts
 

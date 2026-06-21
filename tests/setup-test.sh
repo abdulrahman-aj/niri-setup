@@ -419,6 +419,7 @@ test_workstation_dependency_order() {
         install_core_packages() { printf '%s\n' core >>"$calls"; }
         install_homebrew() { printf '%s\n' brew >>"$calls"; }
         install_brew_formulae() { printf '%s\n' formulae >>"$calls"; }
+        configure_launch_or_focus() { printf '%s\n' launchers >>"$calls"; }
         apply_dms_settings_override() { printf '%s\n' dms-settings >>"$calls"; }
         install_dms_greeter() { printf '%s\n' greeter >>"$calls"; }
         install_zed() { printf '%s\n' zed >>"$calls"; }
@@ -434,7 +435,7 @@ test_workstation_dependency_order() {
         set_graphical_target() { printf '%s\n' target >>"$calls"; }
         run_workstation_phase
     )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core brew formulae dms-settings greeter zed font terminal niri git github dotfiles mise docker dirs target ' ]]
+    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core brew formulae launchers dms-settings greeter zed font terminal niri git github dotfiles mise docker dirs target ' ]]
     rm -f "$calls"
 }
 
@@ -584,12 +585,152 @@ test_docker_toggle_plugin_contract() {
     grep -Fq 'pillClickAction: () => toggleDocker()' "$component"
     grep -Fq 'pillRightClickAction: () => openLazydocker()' "$component"
     grep -Fq '["/usr/local/bin/docker-toggle", "toggle"]' "$component"
-    grep -Fq '["xdg-terminal-exec", "--", "lazydocker"]' "$component"
+    grep -Fq '["/usr/local/bin/launch-or-focus", "tui", "--", "lazydocker"]' "$component"
     grep -Fq 'text: "\uf308"' "$component"
     grep -Fq 'font.family: "JetBrainsMono Nerd Font"' "$component"
     if grep -Fq '["/usr/local/bin/docker-toggle", "start"]' "$component"; then
         return 1
     fi
+}
+
+test_launch_or_focus_behaviors() {
+    local dir helper niri_mock setsid_mock windows_file focus_log launch_log marker state_dir hostile app_id_one app_id_two
+    dir="$(mktemp -d)"
+    helper="$ROOT_DIR/assets/launch-or-focus"
+    niri_mock="$dir/niri"
+    setsid_mock="$dir/setsid"
+    windows_file="$dir/windows.json"
+    focus_log="$dir/focus.log"
+    launch_log="$dir/launch.log"
+    marker="$dir/launched"
+    state_dir="$dir/state"
+    hostile="$dir/should-not-exist"
+    # shellcheck disable=SC2016 # These scripts are test doubles evaluated later.
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'if [[ "$*" == "msg -j windows" ]]; then' \
+        '    if [[ -n "${LAUNCH_MARKER:-}" && -e "$LAUNCH_MARKER" ]]; then' \
+        '        printf "[%s]\\n" "{\"id\":88,\"app_id\":\"niri-webapp-reddit\",\"is_focused\":true}"' \
+        '    else' \
+        '        cat "$WINDOWS_FILE"' \
+        '    fi' \
+        'elif [[ "$1 $2 $3" == "msg action focus-window" ]]; then' \
+        '    printf "%s\\n" "$*" >>"$FOCUS_LOG"' \
+        'else' \
+        '    exit 2' \
+        'fi' >"$niri_mock"
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'printf "<%s>\\n" "$@" >>"$LAUNCH_LOG"' \
+        '[[ -z "${LAUNCH_MARKER:-}" ]] || touch "$LAUNCH_MARKER"' \
+        >"$setsid_mock"
+    chmod +x "$niri_mock" "$setsid_mock"
+
+    printf '[{"id":42,"app_id":"dev.zed.Zed","is_focused":false}]\n' >"$windows_file"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" app dev.zed.Zed -- zed
+    grep -Fxq 'msg action focus-window --id 42' "$focus_log" || return 1
+    [[ ! -e "$launch_log" ]] || return 1
+
+    printf '[]\n' >"$windows_file"
+    : >"$focus_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" app missing.App -- printf 'hello world' "\$(touch $hostile)"
+    grep -Fxq '<hello world>' "$launch_log" || return 1
+    grep -Fxq "<\$(touch $hostile)>" "$launch_log" || return 1
+    [[ ! -e "$hostile" ]] || return 1
+
+    : >"$launch_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker
+    app_id_one="$(sed -n 's/^<--app-id=\(.*\)>$/\1/p' "$launch_log")"
+    : >"$launch_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker --debug
+    app_id_two="$(sed -n 's/^<--app-id=\(.*\)>$/\1/p' "$launch_log")"
+    [[ "$app_id_one" == local.tui.lazydocker.* && "$app_id_two" == local.tui.lazydocker.* && "$app_id_one" != "$app_id_two" ]] || return 1
+
+    mkdir -p "$state_dir"
+    printf '77\n' >"$state_dir/webapp-notion.window-id"
+    printf '[{"id":77,"app_id":"google-chrome","is_focused":false}]\n' >"$windows_file"
+    : >"$focus_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" webapp notion https://www.notion.so
+    grep -Fxq 'msg action focus-window --id 77' "$focus_log" || return 1
+
+    printf '[]\n' >"$windows_file"
+    rm -f "$marker" "$state_dir/webapp-reddit.window-id"
+    : >"$launch_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" LAUNCH_MARKER="$marker" \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" webapp reddit https://www.reddit.com
+    [[ "$(cat "$state_dir/webapp-reddit.window-id")" == 88 ]] || return 1
+    grep -Fxq '<--app=https://www.reddit.com>' "$launch_log" || return 1
+    grep -Fxq '<--class=niri-webapp-reddit>' "$launch_log" || return 1
+    if grep -Fq eval "$helper"; then return 1; fi
+    rm -rf "$dir"
+}
+
+test_webapp_launchers_are_generated_with_icons() {
+    local home calls
+    home="$(mktemp -d)"
+    calls="$(mktemp)"
+    (
+        REAL_HOME="$home"
+        install_root_symlink_with_backup() { printf '%s %s\n' "$1" "$2" >>"$calls"; }
+        have_command() { return 1; }
+        curl() {
+            local output=""
+            while (($#)); do
+                if [[ "$1" == -o ]]; then output=$2; shift 2; else shift; fi
+            done
+            printf 'png' >"$output"
+        }
+        configure_launch_or_focus
+    ) &>/dev/null || return 1
+    [[ "$(find "$home/.local/share/applications" -name 'niri-webapp-*.desktop' | wc -l)" -eq 8 ]] || return 1
+    [[ "$(find "$home/.local/share/icons" -name 'niri-webapp-*.png' | wc -l)" -eq 8 ]] || return 1
+    grep -Fxq 'Name=Notion' "$home/.local/share/applications/niri-webapp-notion.desktop"
+    grep -Fxq 'Exec=/usr/local/bin/launch-or-focus webapp notion https://www.notion.so' "$home/.local/share/applications/niri-webapp-notion.desktop"
+    grep -Fxq 'Icon=niri-webapp-notion' "$home/.local/share/applications/niri-webapp-notion.desktop"
+    grep -Fxq "$ROOT_DIR/assets/launch-or-focus /usr/local/bin/launch-or-focus" "$calls"
+    rm -rf "$home" "$calls"
+}
+
+test_webapp_icon_failure_uses_chrome_icon() {
+    local home
+    home="$(mktemp -d)"
+    (
+        REAL_HOME="$home"
+        install_root_symlink_with_backup() { :; }
+        have_command() { return 1; }
+        curl() { return 1; }
+        configure_launch_or_focus
+    ) &>/dev/null || return 1
+    grep -Fxq 'Icon=google-chrome' "$home/.local/share/applications/niri-webapp-notion.desktop"
+    rm -rf "$home"
+}
+
+test_launch_or_focus_bindings_are_complete() {
+    local config="$ROOT_DIR/assets/niri-overrides.kdl" binding
+    for binding in \
+        'Mod\+Shift\+N.*notion.*https://www.notion.so' \
+        'Mod\+Shift\+R.*reddit.*https://www.reddit.com' \
+        'Mod\+Shift\+C.*google-calendar.*https://calendar.google.com' \
+        'Mod\+Shift\+A.*chatgpt.*https://chatgpt.com' \
+        'Mod\+Shift\+Y.*youtube.*https://www.youtube.com' \
+        'Mod\+Shift\+M.*youtube-music.*https://music.youtube.com' \
+        'Mod\+Shift\+G.*gmail.*https://mail.google.com' \
+        'Mod\+Shift\+D.*discord.*https://discord.com/app' \
+        'Mod\+Shift\+Z.*dev.zed.Zed.*zed' \
+        'Mod\+Shift\+E.*org.gnome.Nautilus.*nautilus'; do
+        grep -Eq "$binding" "$config" || return 1
+    done
 }
 
 test_managed_symlink_is_idempotent_and_backed_up() {
@@ -1022,6 +1163,10 @@ run_test "GitHub CLI protocol is explicitly set to SSH" test_github_protocol_is_
 run_test "Docker is installed for on-demand use" test_docker_configures_repo_service_and_group
 run_test "Docker toggle changes daemon state safely" test_docker_toggle_helper_transitions
 run_test "Docker toggle DMS plugin has expected actions" test_docker_toggle_plugin_contract
+run_test "launch-or-focus handles apps, web apps, and TUIs safely" test_launch_or_focus_behaviors
+run_test "web-app desktop launchers include downloaded icons" test_webapp_launchers_are_generated_with_icons
+run_test "web-app icon failures use the Chrome icon" test_webapp_icon_failure_uses_chrome_icon
+run_test "launch-or-focus Niri bindings are complete" test_launch_or_focus_bindings_are_complete
 run_test "managed assets use backed-up idempotent symlinks" test_managed_symlink_is_idempotent_and_backed_up
 run_test "legacy root paths are backed up and removed once" test_root_path_removal_is_backed_up_and_rerunnable
 run_test "setup entrypoints and updater contract are exact" test_entrypoints_and_update_contract

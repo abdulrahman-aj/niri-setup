@@ -27,7 +27,7 @@ window-rule {
 }
 
 window-rule {
-    match app-id=r#"^(google-chrome|com.google.Chrome)$"#
+    match app-id=r#"^(google-chrome|com.google.Chrome|niri-webapp-.*)$"#
     open-maximized true
 }
 
@@ -37,4 +37,14 @@ binds {
     Mod+Return repeat=false hotkey-overlay-title="Open Terminal" { spawn "ghostty"; }
     Mod+Shift+B repeat=false hotkey-overlay-title="Open Browser" { spawn "google-chrome"; }
     Mod+Shift+Alt+B repeat=false hotkey-overlay-title="Open Browser Incognito" { spawn "google-chrome" "--incognito"; }
+    Mod+Shift+N repeat=false hotkey-overlay-title="Notion" { spawn "launch-or-focus" "webapp" "notion" "https://www.notion.so"; }
+    Mod+Shift+R repeat=false hotkey-overlay-title="Reddit" { spawn "launch-or-focus" "webapp" "reddit" "https://www.reddit.com"; }
+    Mod+Shift+C repeat=false hotkey-overlay-title="Google Calendar" { spawn "launch-or-focus" "webapp" "google-calendar" "https://calendar.google.com"; }
+    Mod+Shift+A repeat=false hotkey-overlay-title="ChatGPT" { spawn "launch-or-focus" "webapp" "chatgpt" "https://chatgpt.com"; }
+    Mod+Shift+Y repeat=false hotkey-overlay-title="YouTube" { spawn "launch-or-focus" "webapp" "youtube" "https://www.youtube.com"; }
+    Mod+Shift+M repeat=false hotkey-overlay-title="YouTube Music" { spawn "launch-or-focus" "webapp" "youtube-music" "https://music.youtube.com"; }
+    Mod+Shift+G repeat=false hotkey-overlay-title="Gmail" { spawn "launch-or-focus" "webapp" "gmail" "https://mail.google.com"; }
+    Mod+Shift+D repeat=false hotkey-overlay-title="Discord" { spawn "launch-or-focus" "webapp" "discord" "https://discord.com/app"; }
+    Mod+Shift+Z repeat=false hotkey-overlay-title="Zed" { spawn "launch-or-focus" "app" "dev.zed.Zed" "--" "zed"; }
+    Mod+Shift+E repeat=false hotkey-overlay-title="Files" { spawn "launch-or-focus" "app" "org.gnome.Nautilus" "--" "nautilus" "--new-window"; }
 }
