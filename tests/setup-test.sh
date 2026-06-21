@@ -502,6 +502,14 @@ test_brew_installs_only_missing_formulae() {
         install_brew_formulae
     )
     grep -Fxq 'install fzf gh tlrc zoxide jq stow fd' "$calls"
+    : >"$calls"
+    (
+        brew_cmd() {
+            [[ "$1" == list ]] || { printf '%s\n' "$*" >>"$calls"; return 1; }
+        }
+        install_brew_formulae
+    ) || return 1
+    [[ ! -s "$calls" ]] || return 1
     rm -f "$calls"
 }
 

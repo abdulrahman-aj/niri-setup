@@ -204,7 +204,9 @@ install_brew_formulae() {
     for formula in "${BREW_FORMULAE[@]}"; do
         brew_cmd list --formula "$formula" &>/dev/null || missing+=("$formula")
     done
-    ((${#missing[@]})) && brew_cmd install "${missing[@]}"
+    if ((${#missing[@]})); then
+        brew_cmd install "${missing[@]}"
+    fi
 }
 
 configure_launch_or_focus() {
