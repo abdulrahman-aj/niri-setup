@@ -520,7 +520,7 @@ test_docker_configures_repo_service_and_group() {
         s() { printf '%s\n' "$*" >>"$calls"; }
         visudo() { return 0; }
         install_root_file_with_backup() {
-            if [[ "$2" == /etc/sudoers.d/niri-setup-docker-toggle ]]; then
+            if [[ "$2" == /etc/sudoers.d/docker-toggle ]]; then
                 grep -Fxq 'tester ALL=(root) NOPASSWD: /usr/bin/systemctl start docker.service docker.socket, /usr/bin/systemctl stop docker.service docker.socket' "$1"
             fi
             printf 'root-file %s %s\n' "$2" "$3" >>"$calls"
@@ -542,7 +542,8 @@ test_docker_configures_repo_service_and_group() {
     grep -Fxq "root-link $ROOT_DIR/assets/docker-toggle /usr/local/bin/docker-toggle" "$calls" || return 1
     grep -Fxq "root-link $ROOT_DIR/install.sh /usr/local/bin/update-workstation" "$calls" || return 1
     grep -Fxq 'root-remove /usr/local/bin/niri-setup-update' "$calls" || return 1
-    grep -Fxq 'root-file /etc/sudoers.d/niri-setup-docker-toggle 0440' "$calls" || return 1
+    grep -Fxq 'root-file /etc/sudoers.d/docker-toggle 0440' "$calls" || return 1
+    grep -Fxq 'root-remove /etc/sudoers.d/niri-setup-docker-toggle' "$calls" || return 1
     grep -Fxq "user-link $ROOT_DIR/assets/dms-docker-toggle $home/.config/DankMaterialShell/plugins/dockerToggle" "$calls" || return 1
     rm -rf "$calls" "$home"
 }
@@ -584,6 +585,11 @@ test_docker_toggle_plugin_contract() {
     grep -Fq 'pillRightClickAction: () => openLazydocker()' "$component"
     grep -Fq '["/usr/local/bin/docker-toggle", "toggle"]' "$component"
     grep -Fq '["xdg-terminal-exec", "--", "lazydocker"]' "$component"
+    grep -Fq 'text: "\uf308"' "$component"
+    grep -Fq 'font.family: "JetBrainsMono Nerd Font"' "$component"
+    if grep -Fq '["/usr/local/bin/docker-toggle", "start"]' "$component"; then
+        return 1
+    fi
 }
 
 test_managed_symlink_is_idempotent_and_backed_up() {

@@ -90,8 +90,8 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
   repeat delay `200`, repeat rate `25`, DMS lock on lid close, maximized
   Zed/Chrome windows, `Mod+W` close, `Mod+Return` Ghostty, and Chrome normal
   and incognito on `Mod+Shift+B` and `Mod+Shift+Alt+B`.
-- The `dockerToggle` DMS widget toggles Docker and right-click opens
-  lazydocker.
+- The `dockerToggle` DMS widget shows a Docker icon, toggles the daemon on
+  left-click, and opens lazydocker without starting Docker on right-click.
 
 ## Optional prompts
 
@@ -108,7 +108,8 @@ right side.
 - [ ] Chrome opens desktop links; Ghostty is the default terminal.
 - [ ] GitHub authentication, SSH fetch, and SSH push work.
 - [ ] Docker is inactive after reboot; its widget toggles it, right-click opens
-  lazydocker, and `docker run --rm hello-world` works without sudo while active.
+  lazydocker without starting it, and `docker run --rm hello-world` works
+  without sudo while active.
 - [ ] Niri loads without warnings; display scales, keybindings, maximized
   windows, Arabic switching, and Nerd Font rendering work as expected.
 - [ ] All installed CLI tools are available in a fresh Fish login shell, and

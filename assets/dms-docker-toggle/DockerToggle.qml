@@ -23,8 +23,7 @@ PluginComponent {
     }
 
     function openLazydocker() {
-        if (!lazydockerStartProcess.running)
-            lazydockerStartProcess.running = true;
+        Quickshell.execDetached(["xdg-terminal-exec", "--", "lazydocker"]);
     }
 
     pillClickAction: () => toggleDocker()
@@ -60,26 +59,15 @@ PluginComponent {
         }
     }
 
-    Process {
-        id: lazydockerStartProcess
-        command: ["/usr/local/bin/docker-toggle", "start"]
-        onExited: (exitCode) => {
-            root.refreshStatus();
-            if (exitCode === 0)
-                Quickshell.execDetached(["xdg-terminal-exec", "--", "lazydocker"]);
-            else
-                ToastService.showError("Could not start Docker for lazydocker");
-        }
-    }
-
     horizontalBarPill: Component {
         Row {
             spacing: Theme.spacingXS
 
-            DankIcon {
+            StyledText {
                 anchors.verticalCenter: parent.verticalCenter
-                name: "deployed_code"
-                size: root.iconSize
+                text: "\uf308"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: root.iconSize
                 color: root.dockerActive ? Theme.primary : Theme.surfaceVariantText
             }
 
@@ -93,9 +81,10 @@ PluginComponent {
     }
 
     verticalBarPill: Component {
-        DankIcon {
-            name: "deployed_code"
-            size: root.iconSize
+        StyledText {
+            text: "\uf308"
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: root.iconSize
             color: root.dockerActive ? Theme.primary : Theme.surfaceVariantText
         }
     }

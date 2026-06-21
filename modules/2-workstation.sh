@@ -256,8 +256,9 @@ install_docker() {
     trap 'rm -f "${temp:-}"; trap - RETURN' RETURN
     printf '%s ALL=(root) NOPASSWD: /usr/bin/systemctl start docker.service docker.socket, /usr/bin/systemctl stop docker.service docker.socket\n' "$REAL_USER" >"$temp"
     visudo -cf "$temp" &>/dev/null || { err "Generated Docker sudoers rule is invalid."; return 1; }
-    sudoers=/etc/sudoers.d/niri-setup-docker-toggle
+    sudoers=/etc/sudoers.d/docker-toggle
     install_root_file_with_backup "$temp" "$sudoers" 0440
+    remove_root_path_with_backup /etc/sudoers.d/niri-setup-docker-toggle
     plugin_dir="$REAL_HOME/.config/DankMaterialShell/plugins/dockerToggle"
     install_symlink_with_backup "$ROOT_DIR/assets/dms-docker-toggle" "$plugin_dir"
     s systemctl disable --now docker.service docker.socket
