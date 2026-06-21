@@ -406,7 +406,7 @@ test_core_package_list_is_exact() {
 
 test_brew_owns_portable_cli_tools() {
     local formula
-    for formula in jq stow fd ripgrep tree-sitter-cli bat; do
+    for formula in jq stow fd ripgrep tree-sitter-cli bat eza; do
         [[ " ${BREW_FORMULAE[*]} " == *" $formula "* ]] || return 1
     done
     grep -Fq '$(brew_bin_dir)/jq' <<<"$(declare -f jq_cmd)" || return 1
@@ -540,11 +540,11 @@ test_brew_installs_only_missing_formulae() {
     calls="$(mktemp)"
     (
         brew_cmd() {
-            if [[ "$1" == list ]]; then [[ "$3" != fzf && "$3" != bat && "$3" != gh && "$3" != tlrc && "$3" != zoxide && "$3" != jq && "$3" != stow && "$3" != fd && "$3" != tree-sitter-cli ]]; else printf '%s\n' "$*" >>"$calls"; fi
+            if [[ "$1" == list ]]; then [[ "$3" != fzf && "$3" != bat && "$3" != eza && "$3" != gh && "$3" != tlrc && "$3" != zoxide && "$3" != jq && "$3" != stow && "$3" != fd && "$3" != tree-sitter-cli ]]; else printf '%s\n' "$*" >>"$calls"; fi
         }
         install_brew_formulae
     )
-    grep -Fxq 'install fzf bat gh tlrc zoxide jq stow fd tree-sitter-cli' "$calls"
+    grep -Fxq 'install fzf bat eza gh tlrc zoxide jq stow fd tree-sitter-cli' "$calls"
     : >"$calls"
     (
         brew_cmd() {

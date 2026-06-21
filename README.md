@@ -84,7 +84,7 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
 
 ## Installed behavior
 
-- Homebrew installs Starship, lazygit, lazydocker, fzf, bat, ripgrep, GitHub CLI,
+- Homebrew installs Starship, lazygit, lazydocker, fzf, bat, eza, ripgrep, GitHub CLI,
   Mise, Zoxide, `tlrc`, jq, Stow, and fd. Mise installs OpenCode, Codex, and
   Claude Code.
 - Fish and Zed configuration comes from the dotfiles repo. Fish includes your
