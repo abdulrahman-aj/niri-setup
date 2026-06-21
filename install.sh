@@ -36,6 +36,6 @@ main() {
     exec "$INSTALL_DIR/setup.sh"
 }
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+if [[ -z "${BASH_SOURCE[0]-}" || "${BASH_SOURCE[0]-}" == "$0" ]]; then
     main "$@"
 fi

@@ -681,6 +681,28 @@ test_install_bootstraps_missing_git() {
     rm -f "$calls"
 }
 
+test_install_runs_when_piped_to_bash() {
+    local dir bin marker
+    dir="$(mktemp -d)"
+    bin="$dir/bin"
+    marker="$dir/setup-ran"
+    mkdir -p "$bin"
+    # shellcheck disable=SC2016 # This creates a Git test double evaluated later.
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'if [[ "$1" == clone ]]; then' \
+        '    destination="${@: -1}"' \
+        '    mkdir -p "$destination/.git"' \
+        '    printf "%s\n" "#!/usr/bin/env bash" "printf ran >\"\$INSTALL_PIPE_MARKER\"" >"$destination/setup.sh"' \
+        '    chmod +x "$destination/setup.sh"' \
+        'fi' >"$bin/git"
+    chmod +x "$bin/git"
+    PATH="$bin:/usr/bin:/bin" NIRI_SETUP_DIR="$dir/managed" INSTALL_PIPE_MARKER="$marker" \
+        bash <"$ROOT_DIR/install.sh"
+    [[ "$(cat "$marker")" == ran ]]
+    rm -rf "$dir"
+}
+
 test_close_window_binding_is_mod_w() {
     local override="$ROOT_DIR/assets/niri-overrides.kdl"
     grep -Fq 'Mod+W repeat=false hotkey-overlay-title="Close Window" { close-window; }' "$override"
@@ -979,6 +1001,7 @@ run_test "legacy root paths are backed up and removed once" test_root_path_remov
 run_test "setup entrypoints and updater contract are exact" test_entrypoints_and_update_contract
 run_test "install bootstrap handles fresh, clean, and rejected checkouts" test_install_bootstrap_sync_branches
 run_test "install bootstrap installs missing Git" test_install_bootstraps_missing_git
+run_test "install bootstrap runs when piped to Bash" test_install_runs_when_piped_to_bash
 run_test "close-window is bound to Mod+W" test_close_window_binding_is_mod_w
 run_test "Homebrew handles missing and healthy installations" test_homebrew_missing_and_healthy_branches
 run_test "Zed installs only when missing" test_zed_installs_only_when_missing
