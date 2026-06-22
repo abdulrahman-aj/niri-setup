@@ -2,7 +2,7 @@
 
 readonly CORE_PACKAGES=(
     xwayland-satellite libva-intel-driver intel-media-driver
-    xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish
+    xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish make
 )
 readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli)
 readonly MISE_TOOLS=(opencode codex claude-code)
@@ -182,7 +182,8 @@ brew_tool_present() { [[ -x "$(brew_bin_dir)/$1" ]]; }
 gh_cmd() { "$(brew_bin_dir)/gh" "$@"; }
 mise_cmd() { "$(brew_bin_dir)/mise" "$@"; }
 jq_cmd() { "$(brew_bin_dir)/jq" "$@"; }
-stow_cmd() { "$(brew_bin_dir)/stow" "$@"; }
+make_cmd() { PATH="$(brew_bin_dir):$PATH" make "$@"; }
+ghostty_cmd() { ghostty "$@"; }
 system_fish_cmd() { /usr/bin/fish "$@"; }
 
 install_homebrew() {
@@ -297,6 +298,32 @@ validate_dotfiles_fish() {
     grep -Rqs 'starship init fish' "$1/fish" || { err "Dotfiles Fish config does not activate Starship."; return 1; }
 }
 
+validate_dotfiles_ghostty() {
+    local config="$1/ghostty/.config/ghostty/config" isolated
+    [[ -f "$config" ]] || { err "Dotfiles Ghostty config was not found: ${config}"; return 1; }
+    isolated="$(mktemp -d)"
+    trap 'rm -rf "${isolated:-}"; trap - RETURN' RETURN
+    mkdir -p "$isolated/ghostty"
+    ln -s "$config" "$isolated/ghostty/config"
+    XDG_CONFIG_HOME="$isolated" ghostty_cmd +validate-config || {
+        err "Dotfiles Ghostty config is invalid: ${config}"
+        return 1
+    }
+}
+
+validate_dotfiles_makefile() {
+    local dotdir=$1 makefile="$1/Makefile"
+    [[ -f "$makefile" ]] || { err "Dotfiles Makefile was not found: ${makefile}"; return 1; }
+    make_cmd -n -C "$dotdir" check TARGET="$REAL_HOME" &>/dev/null || {
+        err "Dotfiles Makefile does not provide a valid check target."
+        return 1
+    }
+    make_cmd -n -C "$dotdir" stow TARGET="$REAL_HOME" &>/dev/null || {
+        err "Dotfiles Makefile does not provide a valid stow target."
+        return 1
+    }
+}
+
 prepare_fish_config_directory() {
     local dotdir=$1 config="$REAL_HOME/.config/fish" expected saved
     expected="$(readlink -f "$dotdir/fish/.config/fish")"
@@ -319,17 +346,36 @@ prepare_fish_config_directory() {
     fi
 }
 
+prepare_ghostty_config() {
+    local dotdir=$1 destination="$REAL_HOME/.config/ghostty/config" expected
+    expected="$dotdir/ghostty/.config/ghostty/config"
+    if [[ -L "$destination" && "$(readlink -f "$destination")" == "$(readlink -f "$expected")" ]]; then
+        return 0
+    fi
+    if [[ -e "$destination" || -L "$destination" ]]; then
+        backup_path "$destination"
+        rm -rf -- "$destination"
+    fi
+}
+
 install_dotfiles() {
     local dotdir="$REAL_HOME/.dotfiles"
     [[ -d "$dotdir" ]] || gh_cmd repo clone abdulrahman-aj/dotfiles "$dotdir"
     validate_existing_dotfiles
     validate_dotfiles_fish "$dotdir"
+    validate_dotfiles_ghostty "$dotdir"
+    validate_dotfiles_makefile "$dotdir"
     prepare_fish_config_directory "$dotdir"
-    stow_cmd --simulate -d "$dotdir" -t "$REAL_HOME" fish zed || {
+    make_cmd -C "$dotdir" check TARGET="$REAL_HOME" PKGS='fish zed' || {
         err "Stow detected conflicts; no dotfiles were changed."
         return 1
     }
-    stow_cmd -d "$dotdir" -t "$REAL_HOME" fish zed
+    prepare_ghostty_config "$dotdir"
+    make_cmd -C "$dotdir" check TARGET="$REAL_HOME" || {
+        err "Stow detected conflicts; the Ghostty backup was preserved, but no dotfiles were stowed."
+        return 1
+    }
+    make_cmd -C "$dotdir" stow TARGET="$REAL_HOME"
     [[ "$(getent passwd "$REAL_USER" | cut -d: -f7)" == /usr/bin/fish ]] || s chsh -s /usr/bin/fish "$REAL_USER"
 }
 

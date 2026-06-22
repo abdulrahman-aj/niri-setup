@@ -24,7 +24,7 @@ graphics, and an internet connection.
 - Sets Chrome as the default browser, Ghostty as the XDG terminal, Fedora Fish as the
   login shell, and `graphical.target` as the default target.
 - Configures Git, requires GitHub CLI auth over SSH, clones or validates
-  `~/.dotfiles`, and stows only `fish` and `zed`.
+  `~/.dotfiles`, and stows `fish`, `ghostty`, and `zed`.
 - Installs a local `dockerToggle` DMS plugin and keeps Docker disabled until
   explicitly started.
 - Installs Niri-native launch-or-focus helpers and named Chrome web-app
@@ -42,7 +42,9 @@ The installer uses
 Fish configuration must evaluate
 `/home/linuxbrew/.linuxbrew/bin/brew shellenv` before its first `brew --prefix`
 use, track `fish_plugins`, and leave `fish_variables` untracked. Commit and push
-those changes before bootstrapping a fresh machine.
+those changes before bootstrapping a fresh machine. The repository must also
+contain a valid `ghostty/.config/ghostty/config`; setup validates it with an
+isolated config home before Stow runs.
 
 ## Install
 
@@ -84,11 +86,17 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
 
 ## Installed behavior
 
-- Homebrew installs Starship, lazygit, lazydocker, fzf, bat, eza, ripgrep, GitHub CLI,
-  Mise, Zoxide, `tlrc`, jq, Stow, and fd. Mise installs OpenCode, Codex, and
-  Claude Code.
-- Fish and Zed configuration comes from the dotfiles repo. Fish includes your
-  Zoxide-backed `cd` behavior. Fisher installs the plugins tracked in
+- Fedora provides Make. Homebrew installs Stow, Starship, lazygit, lazydocker,
+  fzf, bat, eza, ripgrep, GitHub CLI, Mise, Zoxide, `tlrc`, jq, and fd. Mise
+  installs OpenCode, Codex, and Claude Code. Setup delegates dotfiles conflict
+  checks and installation to the repository's `make check` and `make stow`
+  targets.
+- Fish, Ghostty, and Zed configuration comes from the dotfiles repo. Ghostty
+  uses Dark Modern colors matching Zed, JetBrains Mono Nerd Font Regular at
+  size 10, and a compact, decoration-free window. An existing DMS-generated
+  Ghostty config is backed up once before it is replaced by the managed link;
+  DMS's generated `themes/dankcolors` file remains untouched. Fish includes
+  your Zoxide-backed `cd` behavior. Fisher installs the plugins tracked in
   `fish_plugins`, including `fzf.fish`; generated plugin files, universal
   variables, and Niri completions remain outside the dotfiles checkout.
 - Add plugins with `fisher install owner/repository`. Commit only the resulting

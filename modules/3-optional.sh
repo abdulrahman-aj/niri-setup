@@ -17,7 +17,7 @@ kickstart_is_expected() {
 
 install_kickstart() {
     local config="$REAL_HOME/.config/nvim" stamp path backup_root tool
-    install_required_group "Kickstart.nvim prerequisites" gcc make git unzip neovim
+    install_required_group "Kickstart.nvim prerequisites" gcc git unzip neovim
     for tool in rg fd tree-sitter; do
         brew_tool_present "$tool" || {
             err "Kickstart.nvim requires the Homebrew tool: ${tool}"

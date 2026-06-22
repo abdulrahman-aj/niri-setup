@@ -259,12 +259,88 @@ test_stow_conflict_stops_dotfile_install() {
         REAL_USER=tester
         validate_existing_dotfiles() { :; }
         validate_dotfiles_fish() { :; }
-        stow_cmd() { [[ "$1" != '--simulate' ]]; }
+        validate_dotfiles_ghostty() { :; }
+        validate_dotfiles_makefile() { :; }
+        make_cmd() { return 1; }
         install_dotfiles
     ) &>/dev/null
     local status=$?
     rm -rf "$home"
     [[ $status -ne 0 ]]
+}
+
+test_ghostty_dotfiles_are_required_and_parsed() {
+    local dotdir config observed
+    dotdir="$(mktemp -d)"
+    config="$dotdir/ghostty/.config/ghostty/config"
+    if validate_dotfiles_ghostty "$dotdir" &>/dev/null; then return 1; fi
+    mkdir -p "$(dirname "$config")"
+    printf 'font-size = invalid\n' >"$config"
+    if ( ghostty_cmd() { return 1; }; validate_dotfiles_ghostty "$dotdir" ) &>/dev/null; then return 1; fi
+    observed="$(mktemp)"
+    (
+        ghostty_cmd() {
+            [[ "$1" == +validate-config ]]
+            [[ -n "${XDG_CONFIG_HOME:-}" && "$XDG_CONFIG_HOME" != "$HOME/.config" ]]
+            [[ "$(readlink -f "$XDG_CONFIG_HOME/ghostty/config")" == "$config" ]]
+            printf parsed >"$observed"
+        }
+        validate_dotfiles_ghostty "$dotdir"
+    ) || return 1
+    [[ "$(cat "$observed")" == parsed ]]
+    rm -rf "$dotdir" "$observed"
+}
+
+test_dotfiles_makefile_targets_are_required() {
+    local home dotdir
+    home="$(mktemp -d)"
+    dotdir="$home/.dotfiles"
+    mkdir -p "$dotdir"
+    if ( REAL_HOME="$home"; validate_dotfiles_makefile "$dotdir" ) &>/dev/null; then return 1; fi
+    printf 'check:\n\t@:\n' >"$dotdir/Makefile"
+    if ( REAL_HOME="$home"; validate_dotfiles_makefile "$dotdir" ) &>/dev/null; then return 1; fi
+    printf 'check:\n\t@: \nstow:\n\t@:\n' >"$dotdir/Makefile"
+    ( REAL_HOME="$home"; make_cmd() { make "$@"; }; validate_dotfiles_makefile "$dotdir" ) || return 1
+    rm -rf "$home"
+}
+
+test_ghostty_config_migration_is_backed_up_and_rerunnable() {
+    local home dotdir destination backup
+    home="$(mktemp -d)"
+    dotdir="$home/.dotfiles"
+    destination="$home/.config/ghostty/config"
+    mkdir -p "$dotdir/fish" "$dotdir/zed" "$(dirname "$dotdir/ghostty/.config/ghostty/config")" \
+        "$home/.config/ghostty/themes"
+    printf '%s\n' \
+        '.PHONY: check stow' \
+        'PKGS := fish ghostty zed' \
+        'TARGET ?= $(HOME)' \
+        'check:' \
+        $'\tstow --simulate -t "$(TARGET)" $(PKGS)' \
+        'stow:' \
+        $'\tstow -t "$(TARGET)" $(PKGS)' \
+        >"$dotdir/Makefile"
+    printf 'theme = Dark Modern\n' >"$dotdir/ghostty/.config/ghostty/config"
+    printf 'theme = dankcolors\n' >"$destination"
+    printf 'generated theme\n' >"$home/.config/ghostty/themes/dankcolors"
+    (
+        REAL_HOME="$home"
+        REAL_USER=tester
+        validate_existing_dotfiles() { :; }
+        validate_dotfiles_fish() { :; }
+        validate_dotfiles_ghostty() { :; }
+        make_cmd() { make "$@"; }
+        getent() { printf 'tester:x:1000:1000::%s:/usr/bin/fish\n' "$home"; }
+        install_dotfiles
+        install_dotfiles
+    ) &>/dev/null || return 1
+    [[ -L "$destination" ]] || return 1
+    [[ "$(readlink -f "$destination")" == "$dotdir/ghostty/.config/ghostty/config" ]] || return 1
+    backup="$(find "$home/.config/ghostty" -maxdepth 1 -name 'config.backup-*' -print)"
+    [[ -n "$backup" && "$(wc -l <<<"$backup")" -eq 1 ]] || return 1
+    grep -Fxq 'theme = dankcolors' "$backup" || return 1
+    grep -Fxq 'generated theme' "$home/.config/ghostty/themes/dankcolors"
+    rm -rf "$home"
 }
 
 test_required_failure_is_returned() {
@@ -397,7 +473,7 @@ test_existing_chrome_skips_package_install() {
 }
 
 test_core_package_list_is_exact() {
-    [[ "${CORE_PACKAGES[*]}" == 'xwayland-satellite libva-intel-driver intel-media-driver xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish' ]]
+    [[ "${CORE_PACKAGES[*]}" == 'xwayland-satellite libva-intel-driver intel-media-driver xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish make' ]]
     [[ " ${CORE_PACKAGES[*]} " != *' git '* ]]
     [[ " ${CORE_PACKAGES[*]} " != *' pciutils '* ]]
     [[ " ${CORE_PACKAGES[*]} " != *' unrar '* ]]
@@ -410,7 +486,8 @@ test_brew_owns_portable_cli_tools() {
         [[ " ${BREW_FORMULAE[*]} " == *" $formula "* ]] || return 1
     done
     grep -Fq '$(brew_bin_dir)/jq' <<<"$(declare -f jq_cmd)" || return 1
-    grep -Fq '$(brew_bin_dir)/stow' <<<"$(declare -f stow_cmd)"
+    grep -Fq 'PATH="$(brew_bin_dir):$PATH" make' <<<"$(declare -f make_cmd)"
+    [[ -z "$(declare -F stow_cmd)" ]]
 }
 
 test_workstation_dependency_order() {
@@ -1104,7 +1181,7 @@ test_dotfile_install_does_not_edit_checkout() {
     home="$(mktemp -d)"
     calls="$(mktemp)"
     config="$home/.dotfiles/fish/.config/fish/config.fish"
-    mkdir -p "$(dirname "$config")" "$home/.dotfiles/zed"
+    mkdir -p "$(dirname "$config")" "$home/.dotfiles/ghostty/.config/ghostty" "$home/.dotfiles/zed"
     printf 'jorgebucaran/fisher\nPatrickF1/fzf.fish\n' >"$(dirname "$config")/fish_plugins"
     printf '%s\n' \
         'eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)' \
@@ -1116,7 +1193,9 @@ test_dotfile_install_does_not_edit_checkout() {
         REAL_HOME="$home"
         REAL_USER=tester
         validate_existing_dotfiles() { :; }
-        stow_cmd() { return 0; }
+        validate_dotfiles_ghostty() { :; }
+        validate_dotfiles_makefile() { :; }
+        make_cmd() { return 0; }
         getent() { printf 'tester:x:1000:1000::%s:/bin/bash\n' "$home"; }
         s() { printf '%s\n' "$*" >>"$calls"; }
         install_dotfiles
@@ -1232,7 +1311,7 @@ test_kickstart_dependencies_are_split_and_exposed() {
         nvim() { printf 'nvim:%s:path=%s\n' "$*" "$PATH" >>"$calls"; }
         install_kickstart
     ) &>/dev/null || return 1
-    grep -Fxq 'dnf:Kickstart.nvim prerequisites gcc make git unzip neovim' "$calls" || return 1
+    grep -Fxq 'dnf:Kickstart.nvim prerequisites gcc git unzip neovim' "$calls" || return 1
     grep -Fq 'nvim:--headless +qa:path=/brew/bin:' "$calls" || return 1
     if (
         REAL_HOME="$home"
@@ -1333,6 +1412,9 @@ run_test "DMS settings override merges safely and idempotently" test_dms_setting
 run_test "invalid DMS JSON preserves existing settings" test_invalid_dms_json_preserves_settings
 run_test "unexpected dotfiles remote is rejected" test_unexpected_dotfiles_remote_rejected
 run_test "Stow conflicts stop dotfile installation" test_stow_conflict_stops_dotfile_install
+run_test "Ghostty dotfiles are required and parsed in isolation" test_ghostty_dotfiles_are_required_and_parsed
+run_test "dotfiles Makefile check and stow targets are required" test_dotfiles_makefile_targets_are_required
+run_test "Ghostty config migration is backed up and rerunnable" test_ghostty_config_migration_is_backed_up_and_rerunnable
 run_test "required package failures are returned" test_required_failure_is_returned
 run_test "modules are discovered in lexical order" test_modules_are_discovered_in_lexical_order
 run_test "missing modules are fatal" test_missing_module_is_fatal
