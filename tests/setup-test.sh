@@ -1013,6 +1013,16 @@ test_close_window_binding_is_mod_w() {
     grep -Fq 'Mod+Tab repeat=false hotkey-overlay-title="Next Workspace" { focus-workspace-down; }' "$override"
     grep -Fq 'Mod+Shift+Tab repeat=false hotkey-overlay-title="Previous Workspace" { focus-workspace-up; }' "$override"
     grep -Fq 'Mod+O repeat=false hotkey-overlay-title="Overview" { toggle-overview; }' "$override"
+    grep -Fq 'Mod+Down { focus-window-or-workspace-down; }' "$override"
+    grep -Fq 'Mod+Up { focus-window-or-workspace-up; }' "$override"
+    grep -Fq 'Mod+J { focus-window-or-workspace-down; }' "$override"
+    grep -Fq 'Mod+K { focus-window-or-workspace-up; }' "$override"
+    grep -Fq 'Mod+Shift+Down { move-window-down-or-to-workspace-down; }' "$override"
+    grep -Fq 'Mod+Shift+Up { move-window-up-or-to-workspace-up; }' "$override"
+    grep -Fq 'Mod+Shift+J { move-window-down-or-to-workspace-down; }' "$override"
+    grep -Fq 'Mod+Shift+K { move-window-up-or-to-workspace-up; }' "$override"
+    if grep -Eq 'Mod\+Ctrl\+(J|K)' "$override"; then return 1; fi
+    if grep -Eq 'Mod\+Ctrl\+(Down|Up)' "$override"; then return 1; fi
     ! grep -Fq 'toggle-column-tabbed-display' "$override"
 }
 

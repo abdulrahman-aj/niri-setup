@@ -38,6 +38,14 @@ binds {
     Mod+Tab repeat=false hotkey-overlay-title="Next Workspace" { focus-workspace-down; }
     Mod+Shift+Tab repeat=false hotkey-overlay-title="Previous Workspace" { focus-workspace-up; }
     Mod+O repeat=false hotkey-overlay-title="Overview" { toggle-overview; }
+    Mod+Down { focus-window-or-workspace-down; }
+    Mod+Up { focus-window-or-workspace-up; }
+    Mod+J { focus-window-or-workspace-down; }
+    Mod+K { focus-window-or-workspace-up; }
+    Mod+Shift+Down { move-window-down-or-to-workspace-down; }
+    Mod+Shift+Up { move-window-up-or-to-workspace-up; }
+    Mod+Shift+J { move-window-down-or-to-workspace-down; }
+    Mod+Shift+K { move-window-up-or-to-workspace-up; }
     Mod+Return repeat=false hotkey-overlay-title="Open Terminal" { spawn "ghostty"; }
     Mod+Shift+B repeat=false hotkey-overlay-title="Open Browser" { spawn "google-chrome"; }
     Mod+Shift+Alt+B repeat=false hotkey-overlay-title="Open Browser Incognito" { spawn "google-chrome" "--incognito"; }
