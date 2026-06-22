@@ -1162,6 +1162,7 @@ test_install_runs_when_piped_to_bash() {
 test_close_window_binding_is_mod_w() {
     local override="$ROOT_DIR/assets/niri-overrides.kdl"
     grep -Fq 'match app-id=r#"^(dev\.zed\.Zed|com\.mitchellh\.ghostty|local\.tui\..*)$"#' "$override"
+    grep -Fq 'match app-id=r#"^(google-chrome|com.google.Chrome|niri-webapp-.*|chrome-.*-Default)$"#' "$override"
     [[ "$(grep -c 'open-maximized true' "$override")" -eq 2 ]]
     if grep -Fq 'open-fullscreen true' "$override"; then return 1; fi
     grep -Fq 'Mod+W repeat=false hotkey-overlay-title="Close Window" { close-window; }' "$override"

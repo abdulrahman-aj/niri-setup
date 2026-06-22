@@ -27,7 +27,7 @@ window-rule {
 }
 
 window-rule {
-    match app-id=r#"^(google-chrome|com.google.Chrome|niri-webapp-.*)$"#
+    match app-id=r#"^(google-chrome|com.google.Chrome|niri-webapp-.*|chrome-.*-Default)$"#
     open-maximized true
 }
 
