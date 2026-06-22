@@ -131,6 +131,18 @@ configure_xdg_terminal() {
     }
 }
 
+user_systemctl_cmd() { systemctl --user "$@"; }
+
+install_niri_edge_indicators() {
+    local config="$REAL_HOME/.config/quickshell/niri-edge-indicators"
+    local service="$REAL_HOME/.config/systemd/user/niri-edge-indicators.service"
+    install_symlink_with_backup "$ROOT_DIR/assets/niri-edge-indicators" "$config"
+    install_symlink_with_backup "$ROOT_DIR/assets/niri-edge-indicators.service" "$service"
+    user_systemctl_cmd daemon-reload
+    user_systemctl_cmd enable --now niri-edge-indicators.service
+    log "Niri edge indicators installed"
+}
+
 ensure_niri_override_include() {
     local file=$1 generated
     generated="$(mktemp)"
@@ -457,6 +469,7 @@ run_workstation_phase() {
     install_nerd_font
     configure_xdg_terminal
     configure_niri
+    install_niri_edge_indicators
     configure_git
     ensure_github_auth
     install_dotfiles

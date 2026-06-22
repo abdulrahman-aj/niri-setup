@@ -13,6 +13,7 @@ layout {
     focus-ring {
         off
     }
+    default-column-width { proportion 1.0; }
 }
 
 switch-events {

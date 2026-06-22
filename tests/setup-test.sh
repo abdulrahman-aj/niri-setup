@@ -556,6 +556,7 @@ test_workstation_dependency_order() {
         install_nerd_font() { printf '%s\n' font >>"$calls"; }
         configure_xdg_terminal() { printf '%s\n' terminal >>"$calls"; }
         configure_niri() { printf '%s\n' niri >>"$calls"; }
+        install_niri_edge_indicators() { printf '%s\n' indicators >>"$calls"; }
         configure_git() { printf '%s\n' git >>"$calls"; }
         ensure_github_auth() { printf '%s\n' github >>"$calls"; }
         install_dotfiles() { printf '%s\n' dotfiles >>"$calls"; }
@@ -566,7 +567,7 @@ test_workstation_dependency_order() {
         set_graphical_target() { printf '%s\n' target >>"$calls"; }
         run_workstation_phase
     )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae launchers dms-settings greeter zed font terminal niri git github dotfiles fish-plugins mise docker dirs target ' ]]
+    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae launchers dms-settings greeter zed font terminal niri indicators git github dotfiles fish-plugins mise docker dirs target ' ]]
     rm -f "$calls"
 }
 
@@ -1037,6 +1038,23 @@ test_managed_symlink_is_idempotent_and_backed_up() {
     rm -rf "$dir"
 }
 
+test_niri_edge_indicators_are_installed_idempotently() {
+    local home calls
+    home="$(mktemp -d)"; calls="$(mktemp)"
+    (
+        REAL_HOME="$home"
+        user_systemctl_cmd() { printf '%s\n' "$*" >>"$calls"; }
+        install_niri_edge_indicators
+        install_niri_edge_indicators
+    ) &>/dev/null || return 1
+    [[ "$(readlink "$home/.config/quickshell/niri-edge-indicators")" == "$ROOT_DIR/assets/niri-edge-indicators" ]] || return 1
+    [[ "$(readlink "$home/.config/systemd/user/niri-edge-indicators.service")" == "$ROOT_DIR/assets/niri-edge-indicators.service" ]] || return 1
+    [[ "$(grep -c '^daemon-reload$' "$calls")" -eq 2 ]] || return 1
+    [[ "$(grep -c '^enable --now niri-edge-indicators.service$' "$calls")" -eq 2 ]] || return 1
+    [[ "$(find "$home" -name '*.backup-*' | wc -l)" -eq 0 ]]
+    rm -rf "$home" "$calls"
+}
+
 test_root_path_removal_is_backed_up_and_rerunnable() {
     local dir path backup
     dir="$(mktemp -d)"
@@ -1161,9 +1179,14 @@ test_install_runs_when_piped_to_bash() {
 
 test_close_window_binding_is_mod_w() {
     local override="$ROOT_DIR/assets/niri-overrides.kdl"
+    local indicator="$ROOT_DIR/assets/niri-edge-indicators/shell.qml"
     grep -Fq 'match app-id=r#"^(dev\.zed\.Zed|com\.mitchellh\.ghostty|local\.tui\..*)$"#' "$override"
     grep -Fq 'match app-id=r#"^(google-chrome|com.google.Chrome|niri-webapp-.*|chrome-.*-Default)$"#' "$override"
     [[ "$(grep -c 'open-maximized true' "$override")" -eq 2 ]]
+    grep -Fq 'default-column-width { proportion 1.0; }' "$override"
+    grep -Fq 'focusedColumn > 1' "$indicator"
+    grep -Fq 'focusedColumn < maximumColumn' "$indicator"
+    grep -Fq 'mask: Region {}' "$indicator"
     if grep -Fq 'open-fullscreen true' "$override"; then return 1; fi
     grep -Fq 'Mod+W repeat=false hotkey-overlay-title="Close Window" { close-window; }' "$override"
     grep -Fq 'Mod+Q hotkey-overlay-title=null { spawn "true"; }' "$override"
@@ -1561,6 +1584,7 @@ run_test "web-app desktop launchers include downloaded icons" test_webapp_launch
 run_test "web-app icon failures use the Chrome icon" test_webapp_icon_failure_uses_chrome_icon
 run_test "application shortcuts are complete" test_application_shortcuts_are_complete
 run_test "managed assets use backed-up idempotent symlinks" test_managed_symlink_is_idempotent_and_backed_up
+run_test "Niri edge indicators install idempotently" test_niri_edge_indicators_are_installed_idempotently
 run_test "legacy root paths are backed up and removed once" test_root_path_removal_is_backed_up_and_rerunnable
 run_test "setup entrypoints and updater contract are exact" test_entrypoints_and_update_contract
 run_test "install bootstrap handles fresh, clean, and rejected checkouts" test_install_bootstrap_sync_branches

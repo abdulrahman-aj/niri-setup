@@ -112,6 +112,8 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
   `Mod+O` Overview, hybrid window/workspace navigation on `Mod+J/K` and
   `Mod+Up/Down`, `Mod+Return` Ghostty, and Chrome normal and incognito on
   `Mod+Shift+B` and `Mod+Shift+Alt+B`.
+- New tiled columns default to full width. Subtle, non-interactive chevrons at
+  the left and right screen edges indicate additional columns in that direction.
 - Web apps open as Chrome app windows and focus their existing Niri window on
   subsequent launches. Their downloaded favicons fall back to Chrome's icon if
   unavailable.
