@@ -500,7 +500,7 @@ test_workstation_dependency_order() {
         install_niri_fish_completions() { printf '%s\n' completions >>"$calls"; }
         install_homebrew() { printf '%s\n' brew >>"$calls"; }
         install_brew_formulae() { printf '%s\n' formulae >>"$calls"; }
-        configure_launch_or_focus() { printf '%s\n' launchers >>"$calls"; }
+        configure_application_launchers() { printf '%s\n' launchers >>"$calls"; }
         apply_dms_settings_override() { printf '%s\n' dms-settings >>"$calls"; }
         install_dms_greeter() { printf '%s\n' greeter >>"$calls"; }
         install_zed() { printf '%s\n' zed >>"$calls"; }
@@ -749,7 +749,7 @@ test_docker_toggle_plugin_contract() {
     grep -Fq 'pillClickAction: () => toggleDocker()' "$component"
     grep -Fq 'pillRightClickAction: () => openLazydocker()' "$component"
     grep -Fq '["/usr/local/bin/docker-toggle", "toggle"]' "$component"
-    grep -Fq '["/usr/local/bin/launch-or-focus", "tui", "--", "lazydocker"]' "$component"
+    grep -Fq '["/usr/local/bin/launch-or-focus-tui", "lazydocker"]' "$component"
     grep -Fq 'text: "\uf308"' "$component"
     grep -Fq 'font.family: "JetBrainsMono Nerd Font"' "$component"
     if grep -Fq '["/usr/local/bin/docker-toggle", "start"]' "$component"; then
@@ -758,9 +758,10 @@ test_docker_toggle_plugin_contract() {
 }
 
 test_launch_or_focus_behaviors() {
-    local dir helper niri_mock setsid_mock windows_file focus_log launch_log marker state_dir first_pid second_pid
+    local dir webapp_helper tui_helper niri_mock setsid_mock windows_file focus_log launch_log marker state_dir hostile first_pid second_pid
     dir="$(mktemp -d)"
-    helper="$ROOT_DIR/assets/launch-or-focus"
+    webapp_helper="$ROOT_DIR/assets/launch-or-focus-webapp"
+    tui_helper="$ROOT_DIR/assets/launch-or-focus-tui"
     niri_mock="$dir/niri"
     setsid_mock="$dir/setsid"
     windows_file="$dir/windows.json"
@@ -768,6 +769,7 @@ test_launch_or_focus_behaviors() {
     launch_log="$dir/launch.log"
     marker="$dir/launched"
     state_dir="$dir/state"
+    hostile="$dir/should-not-exist"
     # shellcheck disable=SC2016 # These scripts are test doubles evaluated later.
     printf '%s\n' \
         '#!/usr/bin/env bash' \
@@ -792,21 +794,21 @@ test_launch_or_focus_behaviors() {
     chmod +x "$niri_mock" "$setsid_mock"
 
     printf '[]\n' >"$windows_file"
-    if "$helper" app dev.zed.Zed -- zed 2>/dev/null; then return 1; fi
-
     rm -f "$marker"
     : >"$launch_log"
     : >"$focus_log"
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
         LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker "\$(touch $hostile)"
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
         LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker --debug
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker --debug
     [[ "$(grep -Fxc '<--app-id=local.tui.lazydocker>' "$launch_log")" == 1 ]] || return 1
     grep -Fxq 'msg action focus-window --id 88' "$focus_log" || return 1
+    grep -Fxq "<\$(touch $hostile)>" "$launch_log" || return 1
+    [[ ! -e "$hostile" ]] || return 1
 
     rm -f "$marker"
     : >"$launch_log"
@@ -814,13 +816,13 @@ test_launch_or_focus_behaviors() {
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
         LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker SETSID_DELAY=0.3 \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker &
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker &
     first_pid=$!
     sleep 0.05
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
         LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker SETSID_DELAY=0.3 \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker &
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker &
     second_pid=$!
     wait "$first_pid"
     wait "$second_pid"
@@ -831,7 +833,7 @@ test_launch_or_focus_behaviors() {
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
         LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker
     [[ "$(grep -Fxc '<--app-id=local.tui.lazydocker>' "$launch_log")" == 1 ]] || return 1
 
     rm -f "$marker"
@@ -839,7 +841,7 @@ test_launch_or_focus_behaviors() {
     if WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
         WINDOW_WAIT_ATTEMPTS=1 LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" \
-        "$helper" tui -- lazydocker 2>/dev/null; then
+        "$tui_helper" lazydocker 2>/dev/null; then
         return 1
     fi
     grep -Fxq '<--app-id=local.tui.lazydocker>' "$launch_log" || return 1
@@ -849,7 +851,7 @@ test_launch_or_focus_behaviors() {
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
         LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.btop \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- btop
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" btop
     grep -Fxq '<--app-id=local.tui.btop>' "$launch_log" || return 1
 
     mkdir -p "$state_dir"
@@ -858,20 +860,55 @@ test_launch_or_focus_behaviors() {
     : >"$focus_log"
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" webapp notion https://www.notion.so
+    LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$webapp_helper" notion https://www.notion.so
     grep -Fxq 'msg action focus-window --id 77' "$focus_log" || return 1
 
     printf '[]\n' >"$windows_file"
+    rm -f "$marker"
+    : >"$launch_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" LAUNCH_MARKER="$marker" \
+        LAUNCH_APP_ID=niri-webapp-notion NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$webapp_helper" notion https://www.notion.so
+    [[ "$(cat "$state_dir/webapp-notion.window-id")" == 88 ]] || return 1
+    grep -Fxq '<--class=niri-webapp-notion>' "$launch_log" || return 1
+
     rm -f "$marker" "$state_dir/webapp-reddit.window-id"
     : >"$launch_log"
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" LAUNCH_MARKER="$marker" \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" webapp reddit https://www.reddit.com
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$webapp_helper" reddit https://www.reddit.com
     [[ "$(cat "$state_dir/webapp-reddit.window-id")" == 88 ]] || return 1
     grep -Fxq '<--app=https://www.reddit.com>' "$launch_log" || return 1
     grep -Fxq '<--class=niri-webapp-reddit>' "$launch_log" || return 1
+
+    rm -f "$marker" "$state_dir/webapp-chatgpt.window-id"
+    : >"$launch_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" LAUNCH_MARKER="$marker" \
+        LAUNCH_APP_ID=niri-webapp-chatgpt SETSID_DELAY=0.3 NIRI="$niri_mock" SETSID="$setsid_mock" \
+        JQ="$(dirname "$BREW_BIN")/jq" LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" \
+        "$webapp_helper" chatgpt https://chatgpt.com &
+    first_pid=$!
+    sleep 0.05
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" LAUNCH_MARKER="$marker" \
+        LAUNCH_APP_ID=niri-webapp-chatgpt SETSID_DELAY=0.3 NIRI="$niri_mock" SETSID="$setsid_mock" \
+        JQ="$(dirname "$BREW_BIN")/jq" LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" \
+        "$webapp_helper" chatgpt https://chatgpt.com &
+    second_pid=$!
+    wait "$first_pid"
+    wait "$second_pid"
+    [[ "$(grep -Fxc '<--class=niri-webapp-chatgpt>' "$launch_log")" == 1 ]] || return 1
+
+    rm -f "$marker" "$state_dir/webapp-gmail.window-id"
+    : >"$launch_log"
+    if WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        WINDOW_WAIT_ATTEMPTS=1 LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" \
+        "$webapp_helper" gmail https://mail.google.com 2>/dev/null; then
+        return 1
+    fi
+    grep -Fxq '<--class=niri-webapp-gmail>' "$launch_log" || return 1
     if grep -Fq '<fd9-open>' "$launch_log.fd" 2>/dev/null; then return 1; fi
-    if grep -Fq eval "$helper"; then return 1; fi
+    if grep -Fq eval "$webapp_helper" || grep -Fq eval "$tui_helper"; then return 1; fi
     rm -rf "$dir"
 }
 
@@ -882,6 +919,7 @@ test_webapp_launchers_are_generated_with_icons() {
     (
         REAL_HOME="$home"
         install_root_symlink_with_backup() { printf '%s %s\n' "$1" "$2" >>"$calls"; }
+        remove_root_path_with_backup() { printf 'remove %s\n' "$1" >>"$calls"; }
         have_command() { return 1; }
         curl() {
             local output=""
@@ -890,14 +928,16 @@ test_webapp_launchers_are_generated_with_icons() {
             done
             printf 'png' >"$output"
         }
-        configure_launch_or_focus
+        configure_application_launchers
     ) &>/dev/null || return 1
     [[ "$(find "$home/.local/share/applications" -name 'niri-webapp-*.desktop' | wc -l)" -eq 8 ]] || return 1
     [[ "$(find "$home/.local/share/icons" -name 'niri-webapp-*.png' | wc -l)" -eq 8 ]] || return 1
     grep -Fxq 'Name=Notion' "$home/.local/share/applications/niri-webapp-notion.desktop"
-    grep -Fxq 'Exec=/usr/local/bin/launch-or-focus webapp notion https://www.notion.so' "$home/.local/share/applications/niri-webapp-notion.desktop"
+    grep -Fxq 'Exec=/usr/local/bin/launch-or-focus-webapp notion https://www.notion.so' "$home/.local/share/applications/niri-webapp-notion.desktop"
     grep -Fxq 'Icon=niri-webapp-notion' "$home/.local/share/applications/niri-webapp-notion.desktop"
-    grep -Fxq "$ROOT_DIR/assets/launch-or-focus /usr/local/bin/launch-or-focus" "$calls"
+    grep -Fxq "$ROOT_DIR/assets/launch-or-focus-webapp /usr/local/bin/launch-or-focus-webapp" "$calls"
+    grep -Fxq "$ROOT_DIR/assets/launch-or-focus-tui /usr/local/bin/launch-or-focus-tui" "$calls"
+    grep -Fxq 'remove /usr/local/bin/launch-or-focus' "$calls"
     rm -rf "$home" "$calls"
 }
 
@@ -907,9 +947,10 @@ test_webapp_icon_failure_uses_chrome_icon() {
     (
         REAL_HOME="$home"
         install_root_symlink_with_backup() { :; }
+        remove_root_path_with_backup() { :; }
         have_command() { return 1; }
         curl() { return 1; }
-        configure_launch_or_focus
+        configure_application_launchers
     ) &>/dev/null || return 1
     grep -Fxq 'Icon=google-chrome' "$home/.local/share/applications/niri-webapp-notion.desktop"
     rm -rf "$home"
@@ -1426,7 +1467,7 @@ run_test "GitHub CLI protocol is explicitly set to SSH" test_github_protocol_is_
 run_test "Docker is installed for on-demand use" test_docker_configures_repo_service_and_group
 run_test "Docker toggle changes daemon state safely" test_docker_toggle_helper_transitions
 run_test "Docker toggle DMS plugin has expected actions" test_docker_toggle_plugin_contract
-run_test "launch-or-focus handles web apps and TUIs safely" test_launch_or_focus_behaviors
+run_test "split launch-or-focus helpers handle web apps and TUIs safely" test_launch_or_focus_behaviors
 run_test "web-app desktop launchers include downloaded icons" test_webapp_launchers_are_generated_with_icons
 run_test "web-app icon failures use the Chrome icon" test_webapp_icon_failure_uses_chrome_icon
 run_test "application shortcuts are complete" test_application_shortcuts_are_complete

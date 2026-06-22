@@ -27,7 +27,7 @@ graphics, and an internet connection.
   `~/.dotfiles`, and stows `fish`, `ghostty`, and `zed`.
 - Installs a local `dockerToggle` DMS plugin and keeps Docker disabled until
   explicitly started.
-- Installs Niri-native launch-or-focus helpers and named Chrome web-app
+- Installs dedicated Niri-native web-app and TUI launch-or-focus helpers and named Chrome web-app
   launchers for DMS search and application menus.
 - Symlinks managed Niri, helper, and DMS assets from this repo, backing up
   replaced files with timestamped `.backup-*` names.

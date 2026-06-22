@@ -213,14 +213,16 @@ install_brew_formulae() {
     fi
 }
 
-configure_launch_or_focus() {
+configure_application_launchers() {
     local manifest="$ROOT_DIR/assets/webapps.json"
     local applications="$REAL_HOME/.local/share/applications"
     local icons="$REAL_HOME/.local/share/icons/hicolor/128x128/apps"
     local tempdir id name url domain icon_name icon_file desktop generated_icon
     jq_cmd -e 'type == "array" and all(.[]; (.id | type == "string") and (.name | type == "string") and (.url | type == "string") and (.domain | type == "string"))' \
         "$manifest" &>/dev/null || { err "Invalid web-app manifest: ${manifest}"; return 1; }
-    install_root_symlink_with_backup "$ROOT_DIR/assets/launch-or-focus" /usr/local/bin/launch-or-focus
+    install_root_symlink_with_backup "$ROOT_DIR/assets/launch-or-focus-webapp" /usr/local/bin/launch-or-focus-webapp
+    install_root_symlink_with_backup "$ROOT_DIR/assets/launch-or-focus-tui" /usr/local/bin/launch-or-focus-tui
+    remove_root_path_with_backup /usr/local/bin/launch-or-focus
     mkdir -p "$applications" "$icons"
     tempdir="$(mktemp -d)"
     trap 'rm -rf "${tempdir:-}"; trap - RETURN' RETURN
@@ -246,7 +248,7 @@ configure_launch_or_focus() {
             'Version=1.0' \
             'Type=Application' \
             "Name=$name" \
-            "Exec=/usr/local/bin/launch-or-focus webapp $id $url" \
+            "Exec=/usr/local/bin/launch-or-focus-webapp $id $url" \
             "Icon=$icon_name" \
             "StartupWMClass=niri-webapp-$id" \
             'Terminal=false' \
@@ -255,7 +257,7 @@ configure_launch_or_focus() {
         install_file_atomically_with_backup "$desktop" "$applications/niri-webapp-$id.desktop"
     done < <(jq_cmd -r '.[] | [.id, .name, .url, .domain] | @tsv' "$manifest")
     have_command update-desktop-database && update-desktop-database "$applications"
-    log "Launch-or-focus helpers and web-app launchers configured"
+    log "Application launch-or-focus helpers and web-app launchers configured"
 }
 
 configure_git() {
@@ -447,7 +449,7 @@ run_workstation_phase() {
     install_niri_fish_completions
     install_homebrew
     install_brew_formulae
-    configure_launch_or_focus
+    configure_application_launchers
     apply_dms_settings_override
     install_dms_greeter
     install_zed
