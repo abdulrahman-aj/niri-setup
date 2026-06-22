@@ -33,7 +33,11 @@ window-rule {
 
 binds {
     Mod+Q hotkey-overlay-title=null { spawn "true"; }
+    Mod+D hotkey-overlay-title=null { spawn "true"; }
     Mod+W repeat=false hotkey-overlay-title="Close Window" { close-window; }
+    Mod+Tab repeat=false hotkey-overlay-title="Next Workspace" { focus-workspace-down; }
+    Mod+Shift+Tab repeat=false hotkey-overlay-title="Previous Workspace" { focus-workspace-up; }
+    Mod+O repeat=false hotkey-overlay-title="Overview" { toggle-overview; }
     Mod+Return repeat=false hotkey-overlay-title="Open Terminal" { spawn "ghostty"; }
     Mod+Shift+B repeat=false hotkey-overlay-title="Open Browser" { spawn "google-chrome"; }
     Mod+Shift+Alt+B repeat=false hotkey-overlay-title="Open Browser Incognito" { spawn "google-chrome" "--incognito"; }

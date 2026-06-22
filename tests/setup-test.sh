@@ -1009,6 +1009,10 @@ test_close_window_binding_is_mod_w() {
     local override="$ROOT_DIR/assets/niri-overrides.kdl"
     grep -Fq 'Mod+W repeat=false hotkey-overlay-title="Close Window" { close-window; }' "$override"
     grep -Fq 'Mod+Q hotkey-overlay-title=null { spawn "true"; }' "$override"
+    grep -Fq 'Mod+D hotkey-overlay-title=null { spawn "true"; }' "$override"
+    grep -Fq 'Mod+Tab repeat=false hotkey-overlay-title="Next Workspace" { focus-workspace-down; }' "$override"
+    grep -Fq 'Mod+Shift+Tab repeat=false hotkey-overlay-title="Previous Workspace" { focus-workspace-up; }' "$override"
+    grep -Fq 'Mod+O repeat=false hotkey-overlay-title="Overview" { toggle-overview; }' "$override"
     ! grep -Fq 'toggle-column-tabbed-display' "$override"
 }
 
