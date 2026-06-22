@@ -14,7 +14,8 @@ graphics, and an internet connection.
 - Sets DNF to 10 parallel downloads and `defaultyes=True`.
 - Sets the system timezone to `Asia/Amman`, uses `en_US.UTF-8` time-locale
   semantics, and merges repository-managed DMS preferences—including 12-hour
-  AM/PM clocks—over the generated DMS settings.
+  AM/PM clocks—over the generated DMS settings. Setup's DMS commands explicitly
+  select sudo through `DMS_PRIVESC=sudo`.
 - Installs Chrome from Fedora's managed repository before debloating, removes
   Firefox, LibreOffice, and selected GNOME extras, then runs a full system
   upgrade.
@@ -65,7 +66,9 @@ To run a development checkout directly:
 ```
 
 DankInstall opens an interactive TUI when Niri, DMS, or Ghostty is missing;
-select Niri and Ghostty. GitHub CLI may open Chrome for authentication.
+select Niri and Ghostty. DankInstall and setup-invoked DMS commands explicitly
+select sudo through `DMS_PRIVESC=sudo`. GitHub CLI may open Chrome for
+authentication.
 
 ## Update
 

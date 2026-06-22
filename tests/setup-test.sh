@@ -154,6 +154,37 @@ test_checksum_validation() {
     rm -f "$file"
 }
 
+test_dankinstall_selects_sudo_without_exporting_it() {
+    local dir marker observed
+    dir="$(mktemp -d)"
+    marker="$dir/stack-complete"
+    observed="$dir/privesc"
+    (
+        export STACK_MARKER="$marker" DMS_PRIVESC_CAPTURE="$observed"
+        unset DMS_PRIVESC
+        core_stack_complete() { [[ -f "$marker" ]]; }
+        curl() {
+            local output=""
+            while (($#)); do
+                if [[ "$1" == -o ]]; then output=$2; shift 2; else shift; fi
+            done
+            : >"$output"
+        }
+        verify_checksum() { return 0; }
+        gzip() {
+            [[ "$1" == -dc ]]
+            printf '%s\n' \
+                '#!/usr/bin/env bash' \
+                'printf "%s\n" "${DMS_PRIVESC:-unset}" >"$DMS_PRIVESC_CAPTURE"' \
+                'touch "$STACK_MARKER"'
+        }
+        run_dankinstall
+        [[ -z "${DMS_PRIVESC+x}" ]]
+    ) &>/dev/null || return 1
+    [[ "$(cat "$observed")" == sudo ]]
+    rm -rf "$dir"
+}
+
 test_greeter_healthy_skips_repair() {
     local calls
     calls="$(mktemp)"
@@ -183,6 +214,23 @@ test_greeter_repairs_failed_status() {
     ) &>/dev/null || return 1
     grep -q '^greeter enable$' "$calls"
     grep -q '^greeter sync -y$' "$calls"
+    rm -f "$calls"
+}
+
+test_dms_commands_select_sudo_and_forward_status() {
+    local calls
+    calls="$(mktemp)"
+    (
+        unset DMS_PRIVESC
+        dms() {
+            printf '%s|%s\n' "${DMS_PRIVESC:-unset}" "$*" >>"$calls"
+            [[ "$1" != fail ]]
+        }
+        dms_cmd greeter sync -y
+        if dms_cmd fail; then return 1; fi
+        [[ -z "${DMS_PRIVESC+x}" ]]
+    ) || return 1
+    [[ "$(cat "$calls")" == $'sudo|greeter sync -y\nsudo|fail' ]]
     rm -f "$calls"
 }
 
@@ -1434,8 +1482,10 @@ run_test "bootstrap package installation is rerunnable" test_bootstrap_package_i
 run_test "DNF settings are replaced without duplicates" test_dnf_settings_are_replaced_once
 run_test "partial core stack is detected" test_core_stack_requires_every_command
 run_test "checksums are accepted and rejected correctly" test_checksum_validation
+run_test "DankInstall selects sudo without exporting it" test_dankinstall_selects_sudo_without_exporting_it
 run_test "healthy greeter skips repair" test_greeter_healthy_skips_repair
 run_test "unhealthy greeter is repaired" test_greeter_repairs_failed_status
+run_test "DMS commands select sudo and forward status" test_dms_commands_select_sudo_and_forward_status
 run_test "DMS settings override merges safely and idempotently" test_dms_settings_override_merges_and_is_idempotent
 run_test "invalid DMS JSON preserves existing settings" test_invalid_dms_json_preserves_settings
 run_test "unexpected dotfiles remote is rejected" test_unexpected_dotfiles_remote_rejected

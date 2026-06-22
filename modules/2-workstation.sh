@@ -8,6 +8,7 @@ readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise 
 readonly MISE_TOOLS=(opencode codex claude-code)
 
 core_stack_complete() { have_command dms && have_command niri && have_command ghostty; }
+dms_cmd() { DMS_PRIVESC=sudo dms "$@"; }
 
 run_dankinstall() {
     local tempdir archive installer
@@ -24,7 +25,7 @@ run_dankinstall() {
     gzip -dc "$archive" >"$installer"
     chmod +x "$installer"
     info "DankInstall is interactive; select Niri and Ghostty in the TUI."
-    "$installer"
+    DMS_PRIVESC=sudo "$installer"
     core_stack_complete || {
         err "DankInstall finished without the complete desktop stack."
         return 1
@@ -33,11 +34,11 @@ run_dankinstall() {
 
 install_dms_greeter() {
     have_command dms-greeter || s dnf install -y dms-greeter
-    if ! dms greeter status &>/dev/null; then
-        dms greeter enable
+    if ! dms_cmd greeter status &>/dev/null; then
+        dms_cmd greeter enable
     fi
-    dms greeter sync -y
-    dms greeter status
+    dms_cmd greeter sync -y
+    dms_cmd greeter status
     log "dms-greeter is configured and synced"
 }
 
