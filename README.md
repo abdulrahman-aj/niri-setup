@@ -149,6 +149,8 @@ right side.
 
 - [ ] Chrome opens desktop links; Ghostty is the default terminal.
 - [ ] GitHub authentication, SSH fetch, and SSH push work.
+- [ ] In DMS Settings → Widgets, add **Keyboard Layout Name** to DankBar's
+  right side and use its **Compact** button to show `EN`/`AR`.
 - [ ] Docker is inactive after reboot; its widget toggles it, right-click opens
   lazydocker without starting it, and `docker run --rm hello-world` works
   without sudo while active.
