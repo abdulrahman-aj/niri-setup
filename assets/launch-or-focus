@@ -10,6 +10,9 @@ readonly CHROME=${CHROME:-/usr/bin/google-chrome}
 readonly SETSID=${SETSID:-/usr/bin/setsid}
 readonly FLOCK=${FLOCK:-/usr/bin/flock}
 readonly STATE_ROOT="${LAUNCH_OR_FOCUS_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp/launch-or-focus-$UID}/launch-or-focus}"
+readonly WINDOW_WAIT_ATTEMPTS=${WINDOW_WAIT_ATTEMPTS:-50}
+
+[[ "$WINDOW_WAIT_ATTEMPTS" =~ ^[1-9][0-9]*$ ]] || { printf 'Invalid window wait attempt count: %s\n' "$WINDOW_WAIT_ATTEMPTS" >&2; exit 2; }
 
 usage() {
     printf '%s\n' \
@@ -95,7 +98,7 @@ launch_webapp() {
 
     before="$(windows)"
     detach "$CHROME" "--app=$url" "--class=$expected_app_id"
-    for ((attempt = 0; attempt < 50; attempt++)); do
+    for ((attempt = 0; attempt < WINDOW_WAIT_ATTEMPTS; attempt++)); do
         sleep 0.1
         id="$(new_window_id "$before" "$expected_app_id")"
         if [[ -n "$id" ]]; then
@@ -111,17 +114,31 @@ launch_tui() {
     (($# >= 2)) || usage
     [[ "$1" == -- ]] || usage
     shift
-    local name hash app_id id
+    local name app_id id lock_file attempt
     name="$(basename "$1" | tr '[:upper:]_' '[:lower:]-' | sed 's/[^a-z0-9-]//g; s/^-*//; s/-*$//')"
     [[ -n "$name" ]] || name=tui
-    hash="$(printf '%s\0' "$@" | sha256sum | cut -c1-12)"
-    app_id="local.tui.$name.$hash"
+    [[ "$name" =~ ^[a-z] ]] || name="app-$name"
+    app_id="local.tui.$name"
+    mkdir -p "$STATE_ROOT"
+    chmod 0700 "$STATE_ROOT"
+    lock_file="$STATE_ROOT/tui-$name.lock"
+    exec 9>"$lock_file"
+    "$FLOCK" 9
+
     id="$(find_app_window "$app_id")"
     if [[ -n "$id" ]]; then
         focus_window "$id"
-    else
-        detach "$TERMINAL_EXEC" "--app-id=$app_id" -- "$@"
+        return
     fi
+
+    detach "$TERMINAL_EXEC" "--app-id=$app_id" -- "$@"
+    for ((attempt = 0; attempt < WINDOW_WAIT_ATTEMPTS; attempt++)); do
+        sleep 0.1
+        id="$(find_app_window "$app_id")"
+        [[ -z "$id" ]] || return
+    done
+    printf 'Launched TUI but could not identify its Niri window: %s\n' "$name" >&2
+    return 1
 }
 
 case "${1:-}" in

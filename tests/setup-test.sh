@@ -681,7 +681,7 @@ test_docker_toggle_plugin_contract() {
 }
 
 test_launch_or_focus_behaviors() {
-    local dir helper niri_mock setsid_mock windows_file focus_log launch_log marker state_dir hostile app_id_one app_id_two
+    local dir helper niri_mock setsid_mock windows_file focus_log launch_log marker state_dir hostile first_pid second_pid
     dir="$(mktemp -d)"
     helper="$ROOT_DIR/assets/launch-or-focus"
     niri_mock="$dir/niri"
@@ -697,7 +697,7 @@ test_launch_or_focus_behaviors() {
         '#!/usr/bin/env bash' \
         'if [[ "$*" == "msg -j windows" ]]; then' \
         '    if [[ -n "${LAUNCH_MARKER:-}" && -e "$LAUNCH_MARKER" ]]; then' \
-        '        printf "[%s]\\n" "{\"id\":88,\"app_id\":\"niri-webapp-reddit\",\"is_focused\":true}"' \
+        '        printf "[{\"id\":88,\"app_id\":\"%s\",\"is_focused\":true}]\\n" "${LAUNCH_APP_ID:-niri-webapp-reddit}"' \
         '    else' \
         '        cat "$WINDOWS_FILE"' \
         '    fi' \
@@ -729,17 +729,55 @@ test_launch_or_focus_behaviors() {
     grep -Fxq "<\$(touch $hostile)>" "$launch_log" || return 1
     [[ ! -e "$hostile" ]] || return 1
 
+    rm -f "$marker"
     : >"$launch_log"
+    : >"$focus_log"
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
         LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker
-    app_id_one="$(sed -n 's/^<--app-id=\(.*\)>$/\1/p' "$launch_log")"
-    : >"$launch_log"
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
         LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker --debug
-    app_id_two="$(sed -n 's/^<--app-id=\(.*\)>$/\1/p' "$launch_log")"
-    [[ "$app_id_one" == local.tui.lazydocker.* && "$app_id_two" == local.tui.lazydocker.* && "$app_id_one" != "$app_id_two" ]] || return 1
+    [[ "$(grep -Fxc '<--app-id=local.tui.lazydocker>' "$launch_log")" == 1 ]] || return 1
+    grep -Fxq 'msg action focus-window --id 88' "$focus_log" || return 1
+
+    rm -f "$marker"
+    : >"$launch_log"
+    : >"$focus_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker &
+    first_pid=$!
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker &
+    second_pid=$!
+    wait "$first_pid"
+    wait "$second_pid"
+    [[ "$(grep -Fxc '<--app-id=local.tui.lazydocker>' "$launch_log")" == 1 ]] || return 1
+    grep -Fxq 'msg action focus-window --id 88' "$focus_log" || return 1
+
+    rm -f "$marker"
+    : >"$launch_log"
+    if WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        WINDOW_WAIT_ATTEMPTS=1 LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" \
+        "$helper" tui -- lazydocker 2>/dev/null; then
+        return 1
+    fi
+    grep -Fxq '<--app-id=local.tui.lazydocker>' "$launch_log" || return 1
+
+    rm -f "$marker"
+    : >"$launch_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.btop \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- btop
+    grep -Fxq '<--app-id=local.tui.btop>' "$launch_log" || return 1
 
     mkdir -p "$state_dir"
     printf '77\n' >"$state_dir/webapp-notion.window-id"
