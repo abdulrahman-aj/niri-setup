@@ -8,7 +8,7 @@
   "capabilities": ["docker-daemon-toggle", "dankbar-widget"],
   "component": "./DockerToggle.qml",
   "icon": "deployed_code",
-  "requires": ["docker-toggle", "launch-or-focus-tui", "lazydocker", "xdg-terminal-exec"],
+  "requires": ["docker-toggle", "tui-launch-or-focus", "lazydocker", "xdg-terminal-exec"],
   "requires_dms": ">=1.2.0",
   "permissions": ["process"]
 }

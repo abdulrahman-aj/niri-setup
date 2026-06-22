@@ -50,14 +50,14 @@ binds {
     Mod+Return repeat=false hotkey-overlay-title="Open Terminal" { spawn "ghostty"; }
     Mod+Shift+B repeat=false hotkey-overlay-title="Open Browser" { spawn "google-chrome"; }
     Mod+Shift+Alt+B repeat=false hotkey-overlay-title="Open Browser Incognito" { spawn "google-chrome" "--incognito"; }
-    Mod+Shift+N repeat=false hotkey-overlay-title="Notion" { spawn "launch-or-focus-webapp" "notion" "https://www.notion.so"; }
-    Mod+Shift+R repeat=false hotkey-overlay-title="Reddit" { spawn "launch-or-focus-webapp" "reddit" "https://www.reddit.com"; }
-    Mod+Shift+C repeat=false hotkey-overlay-title="Google Calendar" { spawn "launch-or-focus-webapp" "google-calendar" "https://calendar.google.com"; }
-    Mod+Shift+A repeat=false hotkey-overlay-title="ChatGPT" { spawn "launch-or-focus-webapp" "chatgpt" "https://chatgpt.com"; }
-    Mod+Shift+Y repeat=false hotkey-overlay-title="YouTube" { spawn "launch-or-focus-webapp" "youtube" "https://www.youtube.com"; }
-    Mod+Shift+M repeat=false hotkey-overlay-title="YouTube Music" { spawn "launch-or-focus-webapp" "youtube-music" "https://music.youtube.com"; }
-    Mod+Shift+G repeat=false hotkey-overlay-title="Gmail" { spawn "launch-or-focus-webapp" "gmail" "https://mail.google.com"; }
-    Mod+Shift+D repeat=false hotkey-overlay-title="Discord" { spawn "launch-or-focus-webapp" "discord" "https://discord.com/app"; }
+    Mod+Shift+N repeat=false hotkey-overlay-title="Notion" { spawn "webapp-launch-or-focus" "notion" "https://www.notion.so"; }
+    Mod+Shift+R repeat=false hotkey-overlay-title="Reddit" { spawn "webapp-launch-or-focus" "reddit" "https://www.reddit.com"; }
+    Mod+Shift+C repeat=false hotkey-overlay-title="Google Calendar" { spawn "webapp-launch-or-focus" "google-calendar" "https://calendar.google.com"; }
+    Mod+Shift+A repeat=false hotkey-overlay-title="ChatGPT" { spawn "webapp-launch-or-focus" "chatgpt" "https://chatgpt.com"; }
+    Mod+Shift+Y repeat=false hotkey-overlay-title="YouTube" { spawn "webapp-launch-or-focus" "youtube" "https://www.youtube.com"; }
+    Mod+Shift+M repeat=false hotkey-overlay-title="YouTube Music" { spawn "webapp-launch-or-focus" "youtube-music" "https://music.youtube.com"; }
+    Mod+Shift+G repeat=false hotkey-overlay-title="Gmail" { spawn "webapp-launch-or-focus" "gmail" "https://mail.google.com"; }
+    Mod+Shift+D repeat=false hotkey-overlay-title="Discord" { spawn "webapp-launch-or-focus" "discord" "https://discord.com/app"; }
     Mod+Shift+Z repeat=false hotkey-overlay-title="Zed" { spawn "zed" "--new"; }
     Mod+Shift+E repeat=false hotkey-overlay-title="Files" { spawn "nautilus" "--new-window"; }
 }

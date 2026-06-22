@@ -549,7 +549,8 @@ test_workstation_dependency_order() {
         install_niri_fish_completions() { printf '%s\n' completions >>"$calls"; }
         install_homebrew() { printf '%s\n' brew >>"$calls"; }
         install_brew_formulae() { printf '%s\n' formulae >>"$calls"; }
-        configure_application_launchers() { printf '%s\n' launchers >>"$calls"; }
+        install_commands() { printf '%s\n' commands >>"$calls"; }
+        install_webapps() { printf '%s\n' webapps >>"$calls"; }
         apply_dms_settings_override() { printf '%s\n' dms-settings >>"$calls"; }
         install_dms_greeter() { printf '%s\n' greeter >>"$calls"; }
         install_zed() { printf '%s\n' zed >>"$calls"; }
@@ -562,12 +563,13 @@ test_workstation_dependency_order() {
         install_dotfiles() { printf '%s\n' dotfiles >>"$calls"; }
         install_fish_plugins() { printf '%s\n' fish-plugins >>"$calls"; }
         install_mise_tools() { printf '%s\n' mise >>"$calls"; }
+        install_workstation_update_plugin() { printf '%s\n' maintenance >>"$calls"; }
         install_docker() { printf '%s\n' docker >>"$calls"; }
         create_xdg_dirs() { printf '%s\n' dirs >>"$calls"; }
         set_graphical_target() { printf '%s\n' target >>"$calls"; }
         run_workstation_phase
     )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae launchers dms-settings greeter zed font terminal niri indicators git github dotfiles fish-plugins mise docker dirs target ' ]]
+    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal niri indicators git github dotfiles fish-plugins mise maintenance docker dirs target ' ]]
     rm -f "$calls"
 }
 
@@ -740,8 +742,6 @@ test_docker_configures_repo_service_and_group() {
             fi
             printf 'root-file %s %s\n' "$2" "$3" >>"$calls"
         }
-        install_root_symlink_with_backup() { printf 'root-link %s %s\n' "$1" "$2" >>"$calls"; }
-        remove_root_path_with_backup() { printf 'root-remove %s\n' "$1" >>"$calls"; }
         install_symlink_with_backup() { printf 'user-link %s %s\n' "$1" "$2" >>"$calls"; }
         systemctl() {
             case "$1" in
@@ -754,20 +754,43 @@ test_docker_configures_repo_service_and_group() {
     grep -Fq 'dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo' "$calls" || return 1
     grep -Fxq 'systemctl disable --now docker.service docker.socket' "$calls" || return 1
     grep -Fxq 'usermod -aG docker tester' "$calls" || return 1
-    grep -Fxq "root-link $ROOT_DIR/assets/docker-toggle /usr/local/bin/docker-toggle" "$calls" || return 1
-    grep -Fxq "root-link $ROOT_DIR/install.sh /usr/local/bin/update-workstation" "$calls" || return 1
-    grep -Fxq "root-link $ROOT_DIR/assets/workstation-update-status /usr/local/bin/workstation-update-status" "$calls" || return 1
-    grep -Fxq 'root-remove /usr/local/bin/niri-setup-update' "$calls" || return 1
     grep -Fxq 'root-file /etc/sudoers.d/docker-toggle 0440' "$calls" || return 1
-    grep -Fxq 'root-remove /etc/sudoers.d/niri-setup-docker-toggle' "$calls" || return 1
-    grep -Fxq "user-link $ROOT_DIR/assets/dms-docker-toggle $home/.config/DankMaterialShell/plugins/dockerToggle" "$calls" || return 1
-    grep -Fxq "user-link $ROOT_DIR/assets/dms-workstation-update $home/.config/DankMaterialShell/plugins/workstationUpdate" "$calls" || return 1
+    grep -Fxq "user-link $ROOT_DIR/assets/dms-plugins/docker-toggle $home/.config/DankMaterialShell/plugins/dockerToggle" "$calls" || return 1
     rm -rf "$calls" "$home"
+}
+
+test_workstation_update_plugin_is_independent() {
+    local calls home
+    calls="$(mktemp)"; home="$(mktemp -d)"
+    (
+        REAL_HOME="$home"
+        install_symlink_with_backup() { printf 'user-link %s %s\n' "$1" "$2" >>"$calls"; }
+        install_workstation_update_plugin
+    ) || return 1
+    grep -Fxq "user-link $ROOT_DIR/assets/dms-plugins/workstation-update $home/.config/DankMaterialShell/plugins/workstationUpdate" "$calls" || return 1
+    if grep -Fq docker "$calls"; then return 1; fi
+    rm -rf "$calls" "$home"
+}
+
+test_docker_orchestration_uses_focused_steps() {
+    local calls
+    calls="$(mktemp)"
+    (
+        warn() { :; }
+        enable_docker_repository() { printf '%s\n' repository >>"$calls"; }
+        install_docker_packages() { printf '%s\n' packages >>"$calls"; }
+        install_docker_toggle() { printf '%s\n' toggle >>"$calls"; }
+        configure_docker_access() { printf '%s\n' access >>"$calls"; }
+        verify_docker_disabled() { printf '%s\n' verify >>"$calls"; }
+        install_docker
+    )
+    [[ "$(tr '\n' ' ' <"$calls")" == 'repository packages toggle access verify ' ]]
+    rm -f "$calls"
 }
 
 test_docker_toggle_helper_transitions() {
     local dir state systemctl_mock sudo_mock helper
-    dir="$(mktemp -d)"; state="$dir/state"; helper="$ROOT_DIR/assets/docker-toggle"
+    dir="$(mktemp -d)"; state="$dir/state"; helper="$ROOT_DIR/bin/docker-toggle"
     systemctl_mock="$dir/systemctl"; sudo_mock="$dir/sudo"
     printf 'inactive\n' >"$state"
     # shellcheck disable=SC2016 # These lines form a script evaluated later.
@@ -795,13 +818,13 @@ test_docker_toggle_helper_transitions() {
 }
 
 test_docker_toggle_plugin_contract() {
-    local manifest="$ROOT_DIR/assets/dms-docker-toggle/plugin.json"
-    local component="$ROOT_DIR/assets/dms-docker-toggle/DockerToggle.qml"
+    local manifest="$ROOT_DIR/assets/dms-plugins/docker-toggle/plugin.json"
+    local component="$ROOT_DIR/assets/dms-plugins/docker-toggle/DockerToggle.qml"
     grep -Fq '"id": "dockerToggle"' "$manifest"
     grep -Fq 'pillClickAction: () => toggleDocker()' "$component"
     grep -Fq 'pillRightClickAction: () => openLazydocker()' "$component"
     grep -Fq '["/usr/local/bin/docker-toggle", "toggle"]' "$component"
-    grep -Fq '["/usr/local/bin/launch-or-focus-tui", "lazydocker"]' "$component"
+    grep -Fq '["/usr/local/bin/tui-launch-or-focus", "lazydocker"]' "$component"
     grep -Fq 'text: "\uf308"' "$component"
     grep -Fq 'font.family: "JetBrainsMono Nerd Font"' "$component"
     if grep -Fq '["/usr/local/bin/docker-toggle", "start"]' "$component"; then
@@ -810,20 +833,20 @@ test_docker_toggle_plugin_contract() {
 }
 
 test_workstation_update_plugin_contract() {
-    local manifest="$ROOT_DIR/assets/dms-workstation-update/plugin.json"
-    local component="$ROOT_DIR/assets/dms-workstation-update/WorkstationUpdate.qml"
+    local manifest="$ROOT_DIR/assets/dms-plugins/workstation-update/plugin.json"
+    local component="$ROOT_DIR/assets/dms-plugins/workstation-update/WorkstationUpdate.qml"
     jq -e '.id == "workstationUpdate" and .type == "widget" and (.permissions == ["process"])' "$manifest" &>/dev/null
     grep -Fq 'visibilityCommand: "/usr/local/bin/workstation-update-status"' "$component"
     grep -Fq 'visibilityInterval: 1800' "$component"
-    grep -Fq '["xdg-terminal-exec", "update-workstation"]' "$component"
+    grep -Fq '["xdg-terminal-exec", "workstation-update"]' "$component"
     grep -Fq 'pillRightClickAction: () => root.checkVisibility()' "$component"
 }
 
 test_launch_or_focus_behaviors() {
     local dir webapp_helper tui_helper niri_mock setsid_mock windows_file focus_log launch_log marker state_dir hostile first_pid second_pid
     dir="$(mktemp -d)"
-    webapp_helper="$ROOT_DIR/assets/launch-or-focus-webapp"
-    tui_helper="$ROOT_DIR/assets/launch-or-focus-tui"
+    webapp_helper="$ROOT_DIR/bin/webapp-launch-or-focus"
+    tui_helper="$ROOT_DIR/bin/tui-launch-or-focus"
     niri_mock="$dir/niri"
     setsid_mock="$dir/setsid"
     windows_file="$dir/windows.json"
@@ -974,48 +997,62 @@ test_launch_or_focus_behaviors() {
     rm -rf "$dir"
 }
 
-test_webapp_launchers_are_generated_with_icons() {
-    local home calls
-    home="$(mktemp -d)"
+test_webapp_manifest_delegates_to_installer() {
+    local calls
     calls="$(mktemp)"
     (
-        REAL_HOME="$home"
-        install_root_symlink_with_backup() { printf '%s %s\n' "$1" "$2" >>"$calls"; }
-        remove_root_path_with_backup() { printf 'remove %s\n' "$1" >>"$calls"; }
-        have_command() { return 1; }
-        curl() {
-            local output=""
-            while (($#)); do
-                if [[ "$1" == -o ]]; then output=$2; shift 2; else shift; fi
-            done
-            printf 'png' >"$output"
-        }
-        configure_application_launchers
+        webapp_install_cmd() { printf '%s\t%s\t%s\t%s\n' "$@" >>"$calls"; }
+        install_webapps
     ) &>/dev/null || return 1
-    [[ "$(find "$home/.local/share/applications" -name 'niri-webapp-*.desktop' | wc -l)" -eq 8 ]] || return 1
-    [[ "$(find "$home/.local/share/icons" -name 'niri-webapp-*.png' | wc -l)" -eq 8 ]] || return 1
-    grep -Fxq 'Name=Notion' "$home/.local/share/applications/niri-webapp-notion.desktop"
-    grep -Fxq 'Exec=/usr/local/bin/launch-or-focus-webapp notion https://www.notion.so' "$home/.local/share/applications/niri-webapp-notion.desktop"
-    grep -Fxq 'Icon=niri-webapp-notion' "$home/.local/share/applications/niri-webapp-notion.desktop"
-    grep -Fxq "$ROOT_DIR/assets/launch-or-focus-webapp /usr/local/bin/launch-or-focus-webapp" "$calls"
-    grep -Fxq "$ROOT_DIR/assets/launch-or-focus-tui /usr/local/bin/launch-or-focus-tui" "$calls"
-    grep -Fxq 'remove /usr/local/bin/launch-or-focus' "$calls"
-    rm -rf "$home" "$calls"
+    [[ "$(wc -l <"$calls")" -eq 8 ]] || return 1
+    grep -Fxq $'notion\tNotion\thttps://www.notion.so\tnotion.so' "$calls"
+    grep -Fxq $'google-calendar\tGoogle Calendar\thttps://calendar.google.com\tcalendar.google.com' "$calls"
+    grep -Fxq $'discord\tDiscord\thttps://discord.com/app\tdiscord.com' "$calls"
+    rm -f "$calls"
 }
 
-test_webapp_icon_failure_uses_chrome_icon() {
-    local home
-    home="$(mktemp -d)"
-    (
-        REAL_HOME="$home"
-        install_root_symlink_with_backup() { :; }
-        remove_root_path_with_backup() { :; }
-        have_command() { return 1; }
-        curl() { return 1; }
-        configure_application_launchers
-    ) &>/dev/null || return 1
-    grep -Fxq 'Icon=google-chrome' "$home/.local/share/applications/niri-webapp-notion.desktop"
-    rm -rf "$home"
+test_webapp_install_creates_idempotent_launcher() {
+    local dir applications icons curl_mock database_mock database_log helper desktop
+    dir="$(mktemp -d)"; applications="$dir/applications"; icons="$dir/icons"
+    curl_mock="$dir/curl"; database_mock="$dir/update-desktop-database"; database_log="$dir/database.log"
+    helper="$ROOT_DIR/bin/webapp-install"; desktop="$applications/niri-webapp-notion.desktop"
+    # shellcheck disable=SC2016 # These lines form test scripts evaluated later.
+    printf '%s\n' '#!/usr/bin/env bash' 'while (($#)); do if [[ "$1" == -o ]]; then output=$2; shift 2; else shift; fi; done' 'printf png >"$output"' >"$curl_mock"
+    printf '%s\n' '#!/usr/bin/env bash' 'printf "%s\n" "$*" >>"$WEBAPP_DATABASE_LOG"' >"$database_mock"
+    chmod +x "$curl_mock" "$database_mock"
+    WEBAPP_APPLICATIONS_DIR="$applications" WEBAPP_ICONS_DIR="$icons" WEBAPP_CURL="$curl_mock" \
+        WEBAPP_UPDATE_DESKTOP_DATABASE="$database_mock" WEBAPP_DATABASE_LOG="$database_log" \
+        "$helper" notion Notion https://www.notion.so notion.so || return 1
+    grep -Fxq 'Name=Notion' "$desktop"
+    grep -Fxq 'Exec=/usr/local/bin/webapp-launch-or-focus notion https://www.notion.so' "$desktop"
+    grep -Fxq 'Icon=niri-webapp-notion' "$desktop"
+    [[ -s "$icons/niri-webapp-notion.png" ]]
+    WEBAPP_APPLICATIONS_DIR="$applications" WEBAPP_ICONS_DIR="$icons" WEBAPP_CURL="$curl_mock" \
+        WEBAPP_UPDATE_DESKTOP_DATABASE="$database_mock" WEBAPP_DATABASE_LOG="$database_log" \
+        "$helper" notion Notion https://www.notion.so notion.so || return 1
+    [[ "$(find "$dir" -name '*.backup-*' | wc -l)" -eq 0 ]] || return 1
+    WEBAPP_APPLICATIONS_DIR="$applications" WEBAPP_ICONS_DIR="$icons" WEBAPP_CURL="$curl_mock" \
+        WEBAPP_UPDATE_DESKTOP_DATABASE="$database_mock" WEBAPP_DATABASE_LOG="$database_log" \
+        "$helper" notion 'Notion App' https://www.notion.so notion.so || return 1
+    grep -Fxq 'Name=Notion App' "$desktop"
+    [[ "$(find "$applications" -name 'niri-webapp-notion.desktop.backup-*' | wc -l)" -eq 1 ]]
+    [[ "$(wc -l <"$database_log")" -eq 3 ]]
+    rm -rf "$dir"
+}
+
+test_webapp_install_validates_and_falls_back() {
+    local dir helper desktop
+    dir="$(mktemp -d)"; helper="$ROOT_DIR/bin/webapp-install"
+    WEBAPP_APPLICATIONS_DIR="$dir/applications" WEBAPP_ICONS_DIR="$dir/icons" WEBAPP_CURL=/usr/bin/false \
+        WEBAPP_UPDATE_DESKTOP_DATABASE="$dir/not-installed" \
+        "$helper" chatgpt ChatGPT https://chatgpt.com chatgpt.com 2>/dev/null || return 1
+    desktop="$dir/applications/niri-webapp-chatgpt.desktop"
+    grep -Fxq 'Icon=google-chrome' "$desktop" || return 1
+    if WEBAPP_APPLICATIONS_DIR="$dir/applications" WEBAPP_ICONS_DIR="$dir/icons" \
+        "$helper" 'bad id' Bad https://example.com example.com 2>/dev/null; then return 1; fi
+    if WEBAPP_APPLICATIONS_DIR="$dir/applications" WEBAPP_ICONS_DIR="$dir/icons" \
+        "$helper" valid Bad http://example.com example.com 2>/dev/null; then return 1; fi
+    rm -rf "$dir"
 }
 
 test_application_shortcuts_are_complete() {
@@ -1067,25 +1104,6 @@ test_niri_edge_indicators_are_installed_idempotently() {
     rm -rf "$home" "$calls"
 }
 
-test_root_path_removal_is_backed_up_and_rerunnable() {
-    local dir path backup
-    dir="$(mktemp -d)"
-    path="$dir/legacy-command"
-    backup="$path.backup-20260621-000000"
-    printf 'legacy content\n' >"$path"
-    (
-        sudo() { "$@"; }
-        s() { "$@"; }
-        timestamp() { printf '20260621-000000\n'; }
-        remove_root_path_with_backup "$path"
-        remove_root_path_with_backup "$path"
-    ) &>/dev/null || return 1
-    [[ ! -e "$path" ]]
-    [[ "$(cat "$backup")" == 'legacy content' ]]
-    [[ "$(find "$dir" -name 'legacy-command.backup-*' | wc -l)" -eq 1 ]]
-    rm -rf "$dir"
-}
-
 test_entrypoints_and_update_contract() {
     [[ -x "$ROOT_DIR/setup.sh" ]]
     [[ -x "$ROOT_DIR/install.sh" ]]
@@ -1094,8 +1112,40 @@ test_entrypoints_and_update_contract() {
     grep -Fq 'git clone --branch main "$REPO_URL" "$INSTALL_DIR"' "$ROOT_DIR/install.sh"
     grep -Fq 'git -C "$INSTALL_DIR" pull --ff-only origin main' "$ROOT_DIR/install.sh"
     grep -Fq 'run_update' "$ROOT_DIR/install.sh"
-    grep -Fq 'install_root_symlink_with_backup "$ROOT_DIR/install.sh" /usr/local/bin/update-workstation' \
-        "$ROOT_DIR/modules/2-workstation.sh"
+}
+
+test_commands_install_every_bin_script_and_reject_invalid_entries() {
+    local calls expected invalid
+    calls="$(mktemp)"
+    (
+        install_root_symlink_with_backup() { printf '%s %s\n' "$1" "$2" >>"$calls"; }
+        install_commands
+    ) &>/dev/null || return 1
+    expected="$(find "$ROOT_DIR/bin" -maxdepth 1 -type f -executable | wc -l)"
+    [[ "$(wc -l <"$calls")" -eq "$expected" ]] || return 1
+    grep -Fxq "$ROOT_DIR/bin/webapp-install /usr/local/bin/webapp-install" "$calls"
+    grep -Fxq "$ROOT_DIR/bin/tui-launch-or-focus /usr/local/bin/tui-launch-or-focus" "$calls"
+    grep -Fxq "$ROOT_DIR/bin/workstation-update /usr/local/bin/workstation-update" "$calls"
+    invalid="$(mktemp -d)"
+    printf 'not executable\n' >"$invalid/broken"
+    if ( COMMANDS_DIR="$invalid"; install_commands ) &>/dev/null; then return 1; fi
+    rm -rf "$calls" "$invalid"
+}
+
+test_runtime_commands_and_workstation_modules_are_organized() {
+    local command component
+    for command in docker-toggle tui-launch-or-focus webapp-install webapp-launch-or-focus workstation-update workstation-update-status; do
+        [[ -x "$ROOT_DIR/bin/$command" ]] || return 1
+    done
+    for command in docker-toggle launch-or-focus-tui launch-or-focus-webapp workstation-update-status; do
+        [[ ! -e "$ROOT_DIR/assets/$command" ]] || return 1
+    done
+    for component in desktop development commands webapps maintenance docker; do
+        [[ -r "$ROOT_DIR/modules/workstation/$component.sh" ]] || return 1
+        grep -Fq "source_required \"\$ROOT_DIR/modules/workstation/$component.sh\"" \
+            "$ROOT_DIR/modules/2-workstation.sh" || return 1
+    done
+    grep -Fq 'exec "$repo_root/install.sh" "$@"' "$ROOT_DIR/bin/workstation-update"
 }
 
 test_install_bootstrap_sync_branches() {
@@ -1234,7 +1284,7 @@ test_install_pause_preserves_update_status() {
 test_workstation_update_status_detects_remote_commits() {
     local dir remote seed managed checker status
     dir="$(mktemp -d)"; remote="$dir/remote.git"; seed="$dir/seed"; managed="$dir/managed"
-    checker="$ROOT_DIR/assets/workstation-update-status"
+    checker="$ROOT_DIR/bin/workstation-update-status"
     git init -q --bare "$remote"
     git init -q -b main "$seed"
     git -C "$seed" config user.name Test
@@ -1658,18 +1708,22 @@ run_test "Mise installs only missing global tools" test_mise_installs_only_missi
 run_test "failed GitHub login is fatal" test_github_failed_login_is_fatal
 run_test "GitHub CLI protocol is explicitly set to SSH" test_github_protocol_is_explicitly_set_to_ssh
 run_test "Docker is installed for on-demand use" test_docker_configures_repo_service_and_group
+run_test "Docker setup delegates to focused steps" test_docker_orchestration_uses_focused_steps
 run_test "Docker toggle changes daemon state safely" test_docker_toggle_helper_transitions
 run_test "Docker toggle DMS plugin has expected actions" test_docker_toggle_plugin_contract
+run_test "workstation update plugin is independent from Docker" test_workstation_update_plugin_is_independent
 run_test "workstation update status detects remote commits" test_workstation_update_status_detects_remote_commits
 run_test "workstation update DMS plugin has expected actions" test_workstation_update_plugin_contract
 run_test "split launch-or-focus helpers handle web apps and TUIs safely" test_launch_or_focus_behaviors
-run_test "web-app desktop launchers include downloaded icons" test_webapp_launchers_are_generated_with_icons
-run_test "web-app icon failures use the Chrome icon" test_webapp_icon_failure_uses_chrome_icon
+run_test "web-app manifest delegates every entry to webapp-install" test_webapp_manifest_delegates_to_installer
+run_test "webapp-install creates idempotent backed-up launchers" test_webapp_install_creates_idempotent_launcher
+run_test "webapp-install validates input and falls back to Chrome" test_webapp_install_validates_and_falls_back
 run_test "application shortcuts are complete" test_application_shortcuts_are_complete
 run_test "managed assets use backed-up idempotent symlinks" test_managed_symlink_is_idempotent_and_backed_up
 run_test "Niri edge indicators install idempotently" test_niri_edge_indicators_are_installed_idempotently
-run_test "legacy root paths are backed up and removed once" test_root_path_removal_is_backed_up_and_rerunnable
 run_test "setup entrypoints and updater contract are exact" test_entrypoints_and_update_contract
+run_test "all bin commands are installed and invalid entries are rejected" test_commands_install_every_bin_script_and_reject_invalid_entries
+run_test "runtime commands and workstation modules are domain-organized" test_runtime_commands_and_workstation_modules_are_organized
 run_test "install bootstrap handles fresh, clean, and rejected checkouts" test_install_bootstrap_sync_branches
 run_test "install bootstrap installs missing Git" test_install_bootstraps_missing_git
 run_test "install bootstrap runs when piped to Bash" test_install_runs_when_piped_to_bash

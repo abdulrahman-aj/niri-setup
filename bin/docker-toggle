@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Control the on-demand Docker service used by the DMS widget.
 
 set -euo pipefail
 

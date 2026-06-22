@@ -12,7 +12,7 @@ readonly STATE_ROOT="${LAUNCH_OR_FOCUS_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp/launch
 readonly WINDOW_WAIT_ATTEMPTS=${WINDOW_WAIT_ATTEMPTS:-50}
 
 usage() {
-    printf 'Usage: launch-or-focus-tui <command> [arguments...]\n' >&2
+    printf 'Usage: tui-launch-or-focus <command> [arguments...]\n' >&2
     exit 2
 }
 

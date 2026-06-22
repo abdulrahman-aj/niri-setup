@@ -23,7 +23,7 @@ PluginComponent {
     }
 
     function openLazydocker() {
-        Quickshell.execDetached(["/usr/local/bin/launch-or-focus-tui", "lazydocker"]);
+        Quickshell.execDetached(["/usr/local/bin/tui-launch-or-focus", "lazydocker"]);
     }
 
     pillClickAction: () => toggleDocker()

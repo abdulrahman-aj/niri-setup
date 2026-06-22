@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+    printf 'Usage: webapp-install <id> <name> <url> <domain>\n' >&2
+    exit 2
+}
+
+install_with_backup() {
+    local source_file=$1 destination=$2 staged backup
+    mkdir -p "$(dirname "$destination")"
+    if [[ -f "$destination" ]] && cmp -s "$source_file" "$destination"; then
+        return 0
+    fi
+    if [[ -e "$destination" || -L "$destination" ]]; then
+        backup="${destination}.backup-$(date +%Y%m%d-%H%M%S)"
+        cp -a -- "$destination" "$backup"
+    fi
+    staged="$(mktemp "${destination}.tmp.XXXXXX")"
+    if ! install -m 0644 "$source_file" "$staged" || ! mv -f "$staged" "$destination"; then
+        rm -f "$staged"
+        return 1
+    fi
+}
+
+(($# == 4)) || usage
+readonly ID=$1 NAME=$2 URL=$3 DOMAIN=$4
+readonly APPLICATIONS_DIR="${WEBAPP_APPLICATIONS_DIR:-$HOME/.local/share/applications}"
+readonly ICONS_DIR="${WEBAPP_ICONS_DIR:-$HOME/.local/share/icons/hicolor/128x128/apps}"
+readonly CURL=${WEBAPP_CURL:-curl}
+readonly UPDATE_DESKTOP_DATABASE=${WEBAPP_UPDATE_DESKTOP_DATABASE:-update-desktop-database}
+
+[[ "$ID" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { printf 'Invalid web-app id: %s\n' "$ID" >&2; exit 2; }
+[[ -n "$NAME" && "$NAME" != *[$'\n\r']* ]] || { printf 'Invalid web-app name\n' >&2; exit 2; }
+[[ "$URL" =~ ^https://[^[:space:]]+$ ]] || { printf 'Web-app URL must use HTTPS without whitespace: %s\n' "$URL" >&2; exit 2; }
+[[ "$DOMAIN" =~ ^[A-Za-z0-9]+([.-][A-Za-z0-9]+)*$ ]] || { printf 'Invalid favicon domain: %s\n' "$DOMAIN" >&2; exit 2; }
+
+mkdir -p "$APPLICATIONS_DIR" "$ICONS_DIR"
+tempdir="$(mktemp -d)"
+trap 'rm -rf "${tempdir:-}"' EXIT
+icon_name="niri-webapp-$ID"
+icon_file="$ICONS_DIR/$icon_name.png"
+if [[ ! -s "$icon_file" ]]; then
+    generated_icon="$tempdir/$icon_name.png"
+    if "$CURL" -fsSL --retry 2 "https://www.google.com/s2/favicons?domain=$DOMAIN&sz=128" -o "$generated_icon" && [[ -s "$generated_icon" ]]; then
+        install_with_backup "$generated_icon" "$icon_file"
+    else
+        printf 'Could not download %s icon; using the Chrome icon\n' "$NAME" >&2
+        icon_name=google-chrome
+    fi
+fi
+
+desktop="$tempdir/niri-webapp-$ID.desktop"
+printf '%s\n' \
+    '[Desktop Entry]' \
+    'Version=1.0' \
+    'Type=Application' \
+    "Name=$NAME" \
+    "Exec=/usr/local/bin/webapp-launch-or-focus $ID $URL" \
+    "Icon=$icon_name" \
+    "StartupWMClass=niri-webapp-$ID" \
+    'Terminal=false' \
+    'Categories=Network;WebBrowser;' \
+    >"$desktop"
+install_with_backup "$desktop" "$APPLICATIONS_DIR/niri-webapp-$ID.desktop"
+if command -v "$UPDATE_DESKTOP_DATABASE" &>/dev/null; then
+    "$UPDATE_DESKTOP_DATABASE" "$APPLICATIONS_DIR"
+fi

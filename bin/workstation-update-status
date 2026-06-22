@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Report whether the managed workstation checkout is behind origin/main.
 
 set -euo pipefail
 

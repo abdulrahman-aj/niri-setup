@@ -218,17 +218,6 @@ install_root_symlink_with_backup() {
     s ln -s "$target" "$destination"
 }
 
-remove_root_path_with_backup() {
-    local path=$1 backup
-    if ! sudo test -e "$path" && ! sudo test -L "$path"; then
-        return 0
-    fi
-    backup="${path}.backup-$(timestamp)"
-    s cp -a -- "$path" "$backup"
-    s rm -rf -- "$path"
-    info "Backed up ${path} to ${backup}"
-}
-
 install_required_group() {
     local label=$1
     shift

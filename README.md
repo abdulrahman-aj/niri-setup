@@ -28,7 +28,8 @@ graphics, and an internet connection.
   `~/.dotfiles`, and stows `fish`, `ghostty`, and `zed`.
 - Installs a local `dockerToggle` DMS plugin and keeps Docker disabled until
   explicitly started.
-- Installs dedicated Niri-native web-app and TUI launch-or-focus helpers and named Chrome web-app
+- Installs domain-named commands from `bin/`, including dedicated Niri-native
+  web-app and TUI launch-or-focus helpers, and named Chrome web-app
   launchers for DMS search and application menus.
 - Symlinks managed Niri, helper, and DMS assets from this repo, backing up
   replaced files with timestamped `.backup-*` names.
@@ -75,13 +76,13 @@ authentication.
 Update the managed clone and rerun the setup with:
 
 ```bash
-update-workstation
+workstation-update
 ```
 
-The command is a symlink to the checkout's `install.sh`, so bootstrap and
-updates share the same validation and update path. It refuses dirty checkouts
-or unexpected remotes. Repository assets for Niri and the Docker widget are
-also linked from whichever checkout last ran `setup.sh`.
+The command resolves the managed checkout and delegates to its `install.sh`, so
+bootstrap and updates share the same validation and update path. It refuses
+dirty checkouts or unexpected remotes. Repository assets for Niri and the
+Docker widget are also linked from whichever checkout last ran `setup.sh`.
 
 DankInstall and Nerd Font downloads are version-pinned and checksum-verified.
 To update a pin, change its version and URL, download the new archive, calculate
@@ -117,6 +118,10 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
 - Web apps open as Chrome app windows and focus their existing Niri window on
   subsequent launches. Their downloaded favicons fall back to Chrome's icon if
   unavailable.
+- Every executable script in `bin/` is linked into `/usr/local/bin`. Commands
+  use domain-first names such as `webapp-install`, `webapp-launch-or-focus`,
+  `tui-launch-or-focus`, and `workstation-update`. `webapp-install` accepts an
+  ID, display name, HTTPS URL, and favicon domain.
 - The `dockerToggle` DMS widget shows a Docker icon, toggles the daemon on
   left-click, and opens or focuses lazydocker without starting Docker on
   right-click.
@@ -153,7 +158,7 @@ where desired; widget ordering remains manual for now.
 - [ ] Chrome opens desktop links; Ghostty is the default terminal.
 - [ ] GitHub authentication, SSH fetch, and SSH push work.
 - [ ] Add **Workstation Update** to DankBar. It stays hidden while current;
-  when shown, left-click opens `update-workstation` in a new terminal and
+  when shown, left-click opens `workstation-update` in a new terminal and
   right-click refreshes its status.
 - [ ] In DMS Settings → Widgets, add **Keyboard Layout Name** to DankBar's
   right side and use its **Compact** button to show `EN`/`AR`.

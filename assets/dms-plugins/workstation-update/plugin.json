@@ -8,7 +8,7 @@
   "capabilities": ["workstation-update-status", "dankbar-widget"],
   "component": "./WorkstationUpdate.qml",
   "icon": "system_update_alt",
-  "requires": ["workstation-update-status", "update-workstation", "xdg-terminal-exec"],
+  "requires": ["workstation-update-status", "workstation-update", "xdg-terminal-exec"],
   "requires_dms": ">=1.2.0",
   "permissions": ["process"]
 }
