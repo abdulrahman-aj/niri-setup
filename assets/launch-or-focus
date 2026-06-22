@@ -40,7 +40,7 @@ find_app_window() {
 }
 
 detach() {
-    "$SETSID" -f -- "$@" >/dev/null 2>&1
+    "$SETSID" -f -- "$@" 9>&- >/dev/null 2>&1
 }
 
 launch_app() {
@@ -78,7 +78,7 @@ launch_webapp() {
     state_file="$STATE_ROOT/webapp-$key.window-id"
     lock_file="$STATE_ROOT/webapp-$key.lock"
     exec 9>"$lock_file"
-    "$FLOCK" 9
+    "$FLOCK" -n 9 || return 0
 
     if [[ -f "$state_file" ]]; then
         read -r id <"$state_file" || id=""
@@ -123,7 +123,7 @@ launch_tui() {
     chmod 0700 "$STATE_ROOT"
     lock_file="$STATE_ROOT/tui-$name.lock"
     exec 9>"$lock_file"
-    "$FLOCK" 9
+    "$FLOCK" -n 9 || return 0
 
     id="$(find_app_window "$app_id")"
     if [[ -n "$id" ]]; then

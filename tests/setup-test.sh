@@ -708,8 +708,10 @@ test_launch_or_focus_behaviors() {
         'fi' >"$niri_mock"
     printf '%s\n' \
         '#!/usr/bin/env bash' \
+        '[[ ! -e /proc/$$/fd/9 ]] || printf "<fd9-open>\\n" >>"$LAUNCH_LOG.fd"' \
         'printf "<%s>\\n" "$@" >>"$LAUNCH_LOG"' \
         '[[ -z "${LAUNCH_MARKER:-}" ]] || touch "$LAUNCH_MARKER"' \
+        '[[ -z "${SETSID_DELAY:-}" ]] || sleep "$SETSID_DELAY"' \
         >"$setsid_mock"
     chmod +x "$niri_mock" "$setsid_mock"
 
@@ -747,19 +749,27 @@ test_launch_or_focus_behaviors() {
     : >"$launch_log"
     : >"$focus_log"
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
+        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker SETSID_DELAY=0.3 \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
         LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker &
     first_pid=$!
+    sleep 0.05
     WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
+        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker SETSID_DELAY=0.3 \
         NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
         LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker &
     second_pid=$!
     wait "$first_pid"
     wait "$second_pid"
     [[ "$(grep -Fxc '<--app-id=local.tui.lazydocker>' "$launch_log")" == 1 ]] || return 1
-    grep -Fxq 'msg action focus-window --id 88' "$focus_log" || return 1
+
+    rm -f "$marker"
+    : >"$launch_log"
+    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
+        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
+        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
+        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" tui -- lazydocker
+    [[ "$(grep -Fxc '<--app-id=local.tui.lazydocker>' "$launch_log")" == 1 ]] || return 1
 
     rm -f "$marker"
     : >"$launch_log"
@@ -797,6 +807,7 @@ test_launch_or_focus_behaviors() {
     [[ "$(cat "$state_dir/webapp-reddit.window-id")" == 88 ]] || return 1
     grep -Fxq '<--app=https://www.reddit.com>' "$launch_log" || return 1
     grep -Fxq '<--class=niri-webapp-reddit>' "$launch_log" || return 1
+    if grep -Fq '<fd9-open>' "$launch_log.fd" 2>/dev/null; then return 1; fi
     if grep -Fq eval "$helper"; then return 1; fi
     rm -rf "$dir"
 }
