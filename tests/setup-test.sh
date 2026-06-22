@@ -758,7 +758,7 @@ test_docker_toggle_plugin_contract() {
 }
 
 test_launch_or_focus_behaviors() {
-    local dir helper niri_mock setsid_mock windows_file focus_log launch_log marker state_dir hostile first_pid second_pid
+    local dir helper niri_mock setsid_mock windows_file focus_log launch_log marker state_dir first_pid second_pid
     dir="$(mktemp -d)"
     helper="$ROOT_DIR/assets/launch-or-focus"
     niri_mock="$dir/niri"
@@ -768,7 +768,6 @@ test_launch_or_focus_behaviors() {
     launch_log="$dir/launch.log"
     marker="$dir/launched"
     state_dir="$dir/state"
-    hostile="$dir/should-not-exist"
     # shellcheck disable=SC2016 # These scripts are test doubles evaluated later.
     printf '%s\n' \
         '#!/usr/bin/env bash' \
@@ -792,21 +791,8 @@ test_launch_or_focus_behaviors() {
         >"$setsid_mock"
     chmod +x "$niri_mock" "$setsid_mock"
 
-    printf '[{"id":42,"app_id":"dev.zed.Zed","is_focused":false}]\n' >"$windows_file"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" app dev.zed.Zed -- zed
-    grep -Fxq 'msg action focus-window --id 42' "$focus_log" || return 1
-    [[ ! -e "$launch_log" ]] || return 1
-
     printf '[]\n' >"$windows_file"
-    : >"$focus_log"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$helper" app missing.App -- printf 'hello world' "\$(touch $hostile)"
-    grep -Fxq '<hello world>' "$launch_log" || return 1
-    grep -Fxq "<\$(touch $hostile)>" "$launch_log" || return 1
-    [[ ! -e "$hostile" ]] || return 1
+    if "$helper" app dev.zed.Zed -- zed 2>/dev/null; then return 1; fi
 
     rm -f "$marker"
     : >"$launch_log"
@@ -929,7 +915,7 @@ test_webapp_icon_failure_uses_chrome_icon() {
     rm -rf "$home"
 }
 
-test_launch_or_focus_bindings_are_complete() {
+test_application_shortcuts_are_complete() {
     local config="$ROOT_DIR/assets/niri-overrides.kdl" binding
     for binding in \
         'Mod\+Shift\+N.*notion.*https://www.notion.so' \
@@ -939,11 +925,12 @@ test_launch_or_focus_bindings_are_complete() {
         'Mod\+Shift\+Y.*youtube.*https://www.youtube.com' \
         'Mod\+Shift\+M.*youtube-music.*https://music.youtube.com' \
         'Mod\+Shift\+G.*gmail.*https://mail.google.com' \
-        'Mod\+Shift\+D.*discord.*https://discord.com/app' \
-        'Mod\+Shift\+Z.*dev.zed.Zed.*zed' \
-        'Mod\+Shift\+E.*org.gnome.Nautilus.*nautilus'; do
+        'Mod\+Shift\+D.*discord.*https://discord.com/app'; do
         grep -Eq "$binding" "$config" || return 1
     done
+    grep -Fq 'Mod+Shift+Z repeat=false hotkey-overlay-title="Zed" { spawn "zed" "--new"; }' "$config"
+    grep -Fq 'Mod+Shift+E repeat=false hotkey-overlay-title="Files" { spawn "nautilus" "--new-window"; }' "$config"
+    if grep -E 'Mod\+Shift\+(Z|E).*launch-or-focus' "$config"; then return 1; fi
 }
 
 test_managed_symlink_is_idempotent_and_backed_up() {
@@ -1439,10 +1426,10 @@ run_test "GitHub CLI protocol is explicitly set to SSH" test_github_protocol_is_
 run_test "Docker is installed for on-demand use" test_docker_configures_repo_service_and_group
 run_test "Docker toggle changes daemon state safely" test_docker_toggle_helper_transitions
 run_test "Docker toggle DMS plugin has expected actions" test_docker_toggle_plugin_contract
-run_test "launch-or-focus handles apps, web apps, and TUIs safely" test_launch_or_focus_behaviors
+run_test "launch-or-focus handles web apps and TUIs safely" test_launch_or_focus_behaviors
 run_test "web-app desktop launchers include downloaded icons" test_webapp_launchers_are_generated_with_icons
 run_test "web-app icon failures use the Chrome icon" test_webapp_icon_failure_uses_chrome_icon
-run_test "launch-or-focus Niri bindings are complete" test_launch_or_focus_bindings_are_complete
+run_test "application shortcuts are complete" test_application_shortcuts_are_complete
 run_test "managed assets use backed-up idempotent symlinks" test_managed_symlink_is_idempotent_and_backed_up
 run_test "legacy root paths are backed up and removed once" test_root_path_removal_is_backed_up_and_rerunnable
 run_test "setup entrypoints and updater contract are exact" test_entrypoints_and_update_contract

@@ -57,6 +57,6 @@ binds {
     Mod+Shift+M repeat=false hotkey-overlay-title="YouTube Music" { spawn "launch-or-focus" "webapp" "youtube-music" "https://music.youtube.com"; }
     Mod+Shift+G repeat=false hotkey-overlay-title="Gmail" { spawn "launch-or-focus" "webapp" "gmail" "https://mail.google.com"; }
     Mod+Shift+D repeat=false hotkey-overlay-title="Discord" { spawn "launch-or-focus" "webapp" "discord" "https://discord.com/app"; }
-    Mod+Shift+Z repeat=false hotkey-overlay-title="Zed" { spawn "launch-or-focus" "app" "dev.zed.Zed" "--" "zed"; }
-    Mod+Shift+E repeat=false hotkey-overlay-title="Files" { spawn "launch-or-focus" "app" "org.gnome.Nautilus" "--" "nautilus" "--new-window"; }
+    Mod+Shift+Z repeat=false hotkey-overlay-title="Zed" { spawn "zed" "--new"; }
+    Mod+Shift+E repeat=false hotkey-overlay-title="Files" { spawn "nautilus" "--new-window"; }
 }

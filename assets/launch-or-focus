@@ -17,7 +17,6 @@ readonly WINDOW_WAIT_ATTEMPTS=${WINDOW_WAIT_ATTEMPTS:-50}
 usage() {
     printf '%s\n' \
         'Usage:' \
-        '  launch-or-focus app <app-id> -- <command> [arguments...]' \
         '  launch-or-focus webapp <key> <url>' \
         '  launch-or-focus tui -- <command> [arguments...]' >&2
     exit 2
@@ -41,21 +40,6 @@ find_app_window() {
 
 detach() {
     "$SETSID" -f -- "$@" 9>&- >/dev/null 2>&1
-}
-
-launch_app() {
-    (($# >= 3)) || usage
-    local app_id=$1 id
-    shift
-    [[ "$1" == -- ]] || usage
-    shift
-    (($#)) || usage
-    id="$(find_app_window "$app_id")"
-    if [[ -n "$id" ]]; then
-        focus_window "$id"
-    else
-        detach "$@"
-    fi
 }
 
 new_window_id() {
@@ -142,7 +126,6 @@ launch_tui() {
 }
 
 case "${1:-}" in
-    app) shift; launch_app "$@" ;;
     webapp) shift; launch_webapp "$@" ;;
     tui) shift; launch_tui "$@" ;;
     *) usage ;;

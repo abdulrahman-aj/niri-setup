@@ -114,7 +114,7 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
   left-click, and opens or focuses lazydocker without starting Docker on
   right-click.
 
-### Launch-or-focus shortcuts
+### Application shortcuts
 
 | Shortcut | Application |
 | --- | --- |
