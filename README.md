@@ -90,7 +90,8 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
 ## Installed behavior
 
 - Fedora provides Make. Homebrew installs Stow, Starship, lazygit, lazydocker,
-  fzf, bat, eza, ripgrep, GitHub CLI, Mise, Zoxide, `tlrc`, jq, and fd. Mise
+  fzf, bat, eza, ripgrep, GitHub CLI, Mise, Zoxide, `tlrc`, jq, fd, and the
+  official `steipete/tap/codexbar` formula. Mise
   installs OpenCode, Codex, and Claude Code. Setup delegates dotfiles conflict
   checks and installation to the repository's `make check` and `make stow`
   targets.
@@ -104,6 +105,7 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
   variables, and Niri completions remain outside the dotfiles checkout.
 - Add plugins with `fisher install owner/repository`. Commit only the resulting
   `fish_plugins` manifest when the plugin should follow you to other machines.
+- Optional DMS plugin installation skips plugins that are already present.
 - The local Niri override enables US/Arabic layout switching with `Alt+Shift`,
   repeat delay `200`, repeat rate `25`, DMS lock on lid close, maximized
   Zed/Chrome/Ghostty/TUI windows, `Mod+W` close, `Mod+Tab` workspace navigation,

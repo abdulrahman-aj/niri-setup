@@ -536,6 +536,7 @@ test_brew_owns_portable_cli_tools() {
     grep -Fq '$(brew_bin_dir)/jq' <<<"$(declare -f jq_cmd)" || return 1
     grep -Fq 'PATH="$(brew_bin_dir):$PATH" make' <<<"$(declare -f make_cmd)"
     [[ -z "$(declare -F stow_cmd)" ]]
+    [[ " ${BREW_FORMULAE[*]} " == *" steipete/tap/codexbar " ]]
 }
 
 test_workstation_dependency_order() {
@@ -1455,7 +1456,9 @@ test_plugins_default_yes_installs_two() {
         OPTIONAL_FAILURES=()
         stdin_is_tty() { return 0; }
         prompt_default_yes() { return 0; }
-        dms() { printf '%s\n' "$*" >>"$calls"; }
+        dms() {
+            [[ "$*" == 'plugins list' ]] || printf '%s\n' "$*" >>"$calls"
+        }
         offer_dms_plugins
     ) &>/dev/null
     [[ "$(grep -c '^plugins install ' "$calls")" -eq 2 ]]
@@ -1464,6 +1467,41 @@ test_plugins_default_yes_installs_two() {
     if grep -Fq dockerManager "$calls"; then
         return 1
     fi
+    rm -f "$calls"
+}
+
+test_existing_dms_plugins_are_skipped() {
+    local calls
+    calls="$(mktemp)"
+    (
+        OPTIONAL_FAILURES=()
+        dms() {
+            if [[ "$*" == 'plugins list' ]]; then
+                printf '  CodexBar\n    ID: codexBar\n  Wallpaper Discovery\n    ID: wallpaperDiscovery\n'
+            else
+                printf '%s\n' "$*" >>"$calls"
+            fi
+        }
+        install_optional_dms_plugins
+        [[ "${#OPTIONAL_FAILURES[@]}" -eq 0 ]]
+    ) &>/dev/null || return 1
+    ! grep -Fq 'plugins install' "$calls" || return 1
+    rm -f "$calls"
+}
+
+test_failed_dms_plugin_list_skips_installation() {
+    local calls
+    calls="$(mktemp)"
+    (
+        OPTIONAL_FAILURES=()
+        dms() {
+            printf '%s\n' "$*" >>"$calls"
+            return 1
+        }
+        install_optional_dms_plugins
+        [[ "${OPTIONAL_FAILURES[*]}" == 'DMS plugin discovery' ]]
+    ) &>/dev/null || return 1
+    [[ "$(cat "$calls")" == 'plugins list' ]]
     rm -f "$calls"
 }
 
@@ -1546,6 +1584,8 @@ run_test "optional prompts default to yes" test_default_yes_prompt_semantics
 run_test "optional prompt text is exact" test_optional_prompt_text_is_exact
 run_test "Kickstart failure does not fail core setup" test_kickstart_failure_is_nonfatal
 run_test "DMS plugins install by default" test_plugins_default_yes_installs_two
+run_test "existing DMS plugins are skipped" test_existing_dms_plugins_are_skipped
+run_test "failed DMS plugin listing skips installation" test_failed_dms_plugin_list_skips_installation
 run_test "DMS plugin failures do not fail core setup" test_plugin_failures_are_nonfatal
 
 printf '\n%d tests, %d failures\n' "$TESTS_RUN" "$TESTS_FAILED"

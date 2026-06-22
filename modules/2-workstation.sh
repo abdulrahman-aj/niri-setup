@@ -4,7 +4,7 @@ readonly CORE_PACKAGES=(
     xwayland-satellite libva-intel-driver intel-media-driver
     xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish make
 )
-readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli)
+readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli steipete/tap/codexbar)
 readonly MISE_TOOLS=(opencode codex claude-code)
 
 core_stack_complete() { have_command dms && have_command niri && have_command ghostty; }

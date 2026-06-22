@@ -52,17 +52,20 @@ offer_kickstart() {
 
 install_optional_dms_plugins() {
     local plugin output
+    if ! output="$(dms_cmd plugins list)"; then
+        warn "Could not list installed DMS plugins; skipping optional plugin installation"
+        OPTIONAL_FAILURES+=("DMS plugin discovery")
+        return 0
+    fi
+    printf '%s\n' "$output"
     for plugin in codexBar wallpaperDiscovery; do
         info "Third-party DMS registry plugin: ${plugin} (review the source and dependencies shown by DMS)."
-        if ! dms_cmd plugins install "$plugin"; then
+        if grep -Eq "^[[:space:]]*ID:[[:space:]]+${plugin}[[:space:]]*$" <<<"$output"; then
+            log "DMS plugin already installed: ${plugin}"
+        elif ! dms_cmd plugins install "$plugin"; then
             warn "Optional DMS plugin failed: ${plugin}"
             OPTIONAL_FAILURES+=("DMS plugin ${plugin}")
         fi
-    done
-    output="$(dms_cmd plugins list || true)"
-    printf '%s\n' "$output"
-    for plugin in codexBar wallpaperDiscovery; do
-        grep -Fqi "$plugin" <<<"$output" || warn "DMS plugin is not listed as installed: ${plugin}"
     done
 }
 
