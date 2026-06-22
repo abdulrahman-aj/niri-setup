@@ -22,7 +22,7 @@ switch-events {
 }
 
 window-rule {
-    match app-id="dev.zed.Zed"
+    match app-id=r#"^(dev\.zed\.Zed|com\.mitchellh\.ghostty|local\.tui\..*)$"#
     open-maximized true
 }
 

@@ -95,10 +95,10 @@ its hash with `sha256sum`, update the recorded checksum, and run the tests.
   `fish_plugins` manifest when the plugin should follow you to other machines.
 - The local Niri override enables US/Arabic layout switching with `Alt+Shift`,
   repeat delay `200`, repeat rate `25`, DMS lock on lid close, maximized
-  Zed/Chrome windows, `Mod+W` close, `Mod+Tab` workspace navigation, `Mod+O`
-  Overview, hybrid window/workspace navigation on `Mod+J/K` and `Mod+Up/Down`,
-  `Mod+Return` Ghostty, and Chrome normal and incognito on `Mod+Shift+B` and
-  `Mod+Shift+Alt+B`.
+  Zed/Chrome/Ghostty/TUI windows, `Mod+W` close, `Mod+Tab` workspace navigation,
+  `Mod+O` Overview, hybrid window/workspace navigation on `Mod+J/K` and
+  `Mod+Up/Down`, `Mod+Return` Ghostty, and Chrome normal and incognito on
+  `Mod+Shift+B` and `Mod+Shift+Alt+B`.
 - Web apps open as Chrome app windows and focus their existing Niri window on
   subsequent launches. Their downloaded favicons fall back to Chrome's icon if
   unavailable.
