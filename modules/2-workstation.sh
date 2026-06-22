@@ -420,13 +420,14 @@ install_mise_tools() {
 }
 
 install_docker() {
-    local sudoers temp plugin_dir
+    local sudoers temp docker_plugin_dir update_plugin_dir
     if ! dnf repolist 2>/dev/null | grep -Eq '^docker-ce-stable([[:space:]]|$)'; then
         s dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
     fi
     s dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     install_root_symlink_with_backup "$ROOT_DIR/assets/docker-toggle" /usr/local/bin/docker-toggle
     install_root_symlink_with_backup "$ROOT_DIR/install.sh" /usr/local/bin/update-workstation
+    install_root_symlink_with_backup "$ROOT_DIR/assets/workstation-update-status" /usr/local/bin/workstation-update-status
     remove_root_path_with_backup /usr/local/bin/niri-setup-update
     temp="$(mktemp)"
     trap 'rm -f "${temp:-}"; trap - RETURN' RETURN
@@ -435,8 +436,10 @@ install_docker() {
     sudoers=/etc/sudoers.d/docker-toggle
     install_root_file_with_backup "$temp" "$sudoers" 0440
     remove_root_path_with_backup /etc/sudoers.d/niri-setup-docker-toggle
-    plugin_dir="$REAL_HOME/.config/DankMaterialShell/plugins/dockerToggle"
-    install_symlink_with_backup "$ROOT_DIR/assets/dms-docker-toggle" "$plugin_dir"
+    docker_plugin_dir="$REAL_HOME/.config/DankMaterialShell/plugins/dockerToggle"
+    update_plugin_dir="$REAL_HOME/.config/DankMaterialShell/plugins/workstationUpdate"
+    install_symlink_with_backup "$ROOT_DIR/assets/dms-docker-toggle" "$docker_plugin_dir"
+    install_symlink_with_backup "$ROOT_DIR/assets/dms-workstation-update" "$update_plugin_dir"
     s systemctl disable --now docker.service docker.socket
     if ! id -nG "$REAL_USER" | tr ' ' '\n' | grep -Fxq docker; then
         s usermod -aG docker "$REAL_USER"

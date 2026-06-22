@@ -30,11 +30,30 @@ sync_managed_checkout() {
     git -C "$INSTALL_DIR" pull --ff-only origin main
 }
 
-main() {
-    ensure_git
-    sync_managed_checkout
-    exec "$INSTALL_DIR/setup.sh"
+stdin_is_tty() { [[ -t 0 ]]; }
+
+pause_for_completion() {
+    local status=$1 message
+    if stdin_is_tty; then
+        if ((status == 0)); then
+            message='Workstation update complete. Press any key to close...'
+        else
+            message="Workstation update failed with status ${status}. Press any key to close..."
+        fi
+        printf '\n'
+        read -r -n 1 -s -p "$message" || true
+        printf '\n'
+    fi
+    return "$status"
 }
+
+run_update() {
+    local status=0
+    ensure_git && sync_managed_checkout && "$INSTALL_DIR/setup.sh" || status=$?
+    pause_for_completion "$status"
+}
+
+main() { run_update; }
 
 if [[ -z "${BASH_SOURCE[0]-}" || "${BASH_SOURCE[0]-}" == "$0" ]]; then
     main "$@"

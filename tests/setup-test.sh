@@ -756,10 +756,12 @@ test_docker_configures_repo_service_and_group() {
     grep -Fxq 'usermod -aG docker tester' "$calls" || return 1
     grep -Fxq "root-link $ROOT_DIR/assets/docker-toggle /usr/local/bin/docker-toggle" "$calls" || return 1
     grep -Fxq "root-link $ROOT_DIR/install.sh /usr/local/bin/update-workstation" "$calls" || return 1
+    grep -Fxq "root-link $ROOT_DIR/assets/workstation-update-status /usr/local/bin/workstation-update-status" "$calls" || return 1
     grep -Fxq 'root-remove /usr/local/bin/niri-setup-update' "$calls" || return 1
     grep -Fxq 'root-file /etc/sudoers.d/docker-toggle 0440' "$calls" || return 1
     grep -Fxq 'root-remove /etc/sudoers.d/niri-setup-docker-toggle' "$calls" || return 1
     grep -Fxq "user-link $ROOT_DIR/assets/dms-docker-toggle $home/.config/DankMaterialShell/plugins/dockerToggle" "$calls" || return 1
+    grep -Fxq "user-link $ROOT_DIR/assets/dms-workstation-update $home/.config/DankMaterialShell/plugins/workstationUpdate" "$calls" || return 1
     rm -rf "$calls" "$home"
 }
 
@@ -805,6 +807,16 @@ test_docker_toggle_plugin_contract() {
     if grep -Fq '["/usr/local/bin/docker-toggle", "start"]' "$component"; then
         return 1
     fi
+}
+
+test_workstation_update_plugin_contract() {
+    local manifest="$ROOT_DIR/assets/dms-workstation-update/plugin.json"
+    local component="$ROOT_DIR/assets/dms-workstation-update/WorkstationUpdate.qml"
+    jq -e '.id == "workstationUpdate" and .type == "widget" and (.permissions == ["process"])' "$manifest" &>/dev/null
+    grep -Fq 'visibilityCommand: "/usr/local/bin/workstation-update-status"' "$component"
+    grep -Fq 'visibilityInterval: 1800' "$component"
+    grep -Fq '["xdg-terminal-exec", "update-workstation"]' "$component"
+    grep -Fq 'pillRightClickAction: () => root.checkVisibility()' "$component"
 }
 
 test_launch_or_focus_behaviors() {
@@ -1081,7 +1093,7 @@ test_entrypoints_and_update_contract() {
     [[ ! -e "$ROOT_DIR/setup-fedora-niri-dms.sh" ]]
     grep -Fq 'git clone --branch main "$REPO_URL" "$INSTALL_DIR"' "$ROOT_DIR/install.sh"
     grep -Fq 'git -C "$INSTALL_DIR" pull --ff-only origin main' "$ROOT_DIR/install.sh"
-    grep -Fq 'exec "$INSTALL_DIR/setup.sh"' "$ROOT_DIR/install.sh"
+    grep -Fq 'run_update' "$ROOT_DIR/install.sh"
     grep -Fq 'install_root_symlink_with_backup "$ROOT_DIR/install.sh" /usr/local/bin/update-workstation' \
         "$ROOT_DIR/modules/2-workstation.sh"
 }
@@ -1144,6 +1156,7 @@ test_install_bootstrap_sync_branches() {
 test_install_bootstraps_missing_git() {
     local calls
     calls="$(mktemp)"
+    # shellcheck disable=SC2030 # Test-only environment assignment is intentionally scoped to the subshell.
     (
         NIRI_SETUP_DIR=/tmp/not-used
         source "$ROOT_DIR/install.sh"
@@ -1174,6 +1187,74 @@ test_install_runs_when_piped_to_bash() {
     PATH="$bin:/usr/bin:/bin" NIRI_SETUP_DIR="$dir/managed" INSTALL_PIPE_MARKER="$marker" \
         bash <"$ROOT_DIR/install.sh"
     [[ "$(cat "$marker")" == ran ]]
+    rm -rf "$dir"
+}
+
+test_install_pause_preserves_update_status() {
+    local calls status
+    calls="$(mktemp)"
+    (
+        source "$ROOT_DIR/install.sh"
+        stdin_is_tty() { return 0; }
+        read() { printf '%s\n' "$*" >>"$calls"; }
+        pause_for_completion 0
+    ) &>/dev/null || return 1
+    grep -Fq 'Workstation update complete. Press any key to close...' "$calls" || return 1
+    status=0
+    (
+        source "$ROOT_DIR/install.sh"
+        stdin_is_tty() { return 0; }
+        read() { printf '%s\n' "$*" >>"$calls"; }
+        pause_for_completion 7
+    ) &>/dev/null || status=$?
+    [[ "$status" -eq 7 ]] || return 1
+    grep -Fq 'Workstation update failed with status 7. Press any key to close...' "$calls" || return 1
+    : >"$calls"
+    (
+        source "$ROOT_DIR/install.sh"
+        stdin_is_tty() { return 1; }
+        read() { printf called >>"$calls"; }
+        pause_for_completion 0
+    ) &>/dev/null || status=$?
+    [[ ! -s "$calls" ]]
+    status=0
+    (
+        source "$ROOT_DIR/install.sh"
+        stdin_is_tty() { return 0; }
+        ensure_git() { :; }
+        sync_managed_checkout() { return 9; }
+        read() { printf '%s\n' "$*" >>"$calls"; }
+        run_update
+    ) &>/dev/null || status=$?
+    [[ "$status" -eq 9 ]] || return 1
+    grep -Fq 'Workstation update failed with status 9. Press any key to close...' "$calls" || return 1
+    rm -f "$calls"
+}
+
+test_workstation_update_status_detects_remote_commits() {
+    local dir remote seed managed checker status
+    dir="$(mktemp -d)"; remote="$dir/remote.git"; seed="$dir/seed"; managed="$dir/managed"
+    checker="$ROOT_DIR/assets/workstation-update-status"
+    git init -q --bare "$remote"
+    git init -q -b main "$seed"
+    git -C "$seed" config user.name Test
+    git -C "$seed" config user.email test@example.com
+    printf 'one\n' >"$seed/state"
+    git -C "$seed" add state
+    git -C "$seed" commit -qm one
+    git -C "$seed" remote add origin "$remote"
+    git -C "$seed" push -q -u origin main
+    git clone -q --branch main "$remote" "$managed"
+    status=0
+    NIRI_SETUP_DIR="$managed" WORKSTATION_UPDATE_REPO_URL="$remote" "$checker" || status=$?
+    [[ "$status" -eq 1 ]] || return 1
+    printf 'two\n' >>"$seed/state"
+    git -C "$seed" commit -qam two
+    git -C "$seed" push -q
+    NIRI_SETUP_DIR="$managed" WORKSTATION_UPDATE_REPO_URL="$remote" "$checker" || return 1
+    status=0
+    NIRI_SETUP_DIR="$dir/missing" WORKSTATION_UPDATE_REPO_URL="$remote" "$checker" &>/dev/null || status=$?
+    [[ "$status" -eq 2 ]]
     rm -rf "$dir"
 }
 
@@ -1579,6 +1660,8 @@ run_test "GitHub CLI protocol is explicitly set to SSH" test_github_protocol_is_
 run_test "Docker is installed for on-demand use" test_docker_configures_repo_service_and_group
 run_test "Docker toggle changes daemon state safely" test_docker_toggle_helper_transitions
 run_test "Docker toggle DMS plugin has expected actions" test_docker_toggle_plugin_contract
+run_test "workstation update status detects remote commits" test_workstation_update_status_detects_remote_commits
+run_test "workstation update DMS plugin has expected actions" test_workstation_update_plugin_contract
 run_test "split launch-or-focus helpers handle web apps and TUIs safely" test_launch_or_focus_behaviors
 run_test "web-app desktop launchers include downloaded icons" test_webapp_launchers_are_generated_with_icons
 run_test "web-app icon failures use the Chrome icon" test_webapp_icon_failure_uses_chrome_icon
@@ -1590,6 +1673,7 @@ run_test "setup entrypoints and updater contract are exact" test_entrypoints_and
 run_test "install bootstrap handles fresh, clean, and rejected checkouts" test_install_bootstrap_sync_branches
 run_test "install bootstrap installs missing Git" test_install_bootstraps_missing_git
 run_test "install bootstrap runs when piped to Bash" test_install_runs_when_piped_to_bash
+run_test "terminal update pause preserves workflow status" test_install_pause_preserves_update_status
 run_test "close-window is bound to Mod+W" test_close_window_binding_is_mod_w
 run_test "Homebrew handles missing and healthy installations" test_homebrew_missing_and_healthy_branches
 run_test "Zed installs only when missing" test_zed_installs_only_when_missing

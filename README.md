@@ -147,10 +147,14 @@ the core setup.
 
 Set `eDP-1` scale to `1.67` through DMS, then reboot or log out and back in.
 Enable the local `dockerToggle` plugin in DMS Settings and add it to DankBar's
-right side.
+right side. Enable the local `workstationUpdate` plugin and place its widget
+where desired; widget ordering remains manual for now.
 
 - [ ] Chrome opens desktop links; Ghostty is the default terminal.
 - [ ] GitHub authentication, SSH fetch, and SSH push work.
+- [ ] Add **Workstation Update** to DankBar. It stays hidden while current;
+  when shown, left-click opens `update-workstation` in a new terminal and
+  right-click refreshes its status.
 - [ ] In DMS Settings → Widgets, add **Keyboard Layout Name** to DankBar's
   right side and use its **Compact** button to show `EN`/`AR`.
 - [ ] Docker is inactive after reboot; its widget toggles it, right-click opens

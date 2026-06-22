@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly REPO="${NIRI_SETUP_DIR:-$HOME/.local/share/niri-setup}"
+readonly EXPECTED_REMOTE="${WORKSTATION_UPDATE_REPO_URL:-https://github.com/abdulrahman-aj/niri-setup.git}"
+
+[[ -d "$REPO/.git" ]] || { printf 'Managed checkout is missing: %s\n' "$REPO" >&2; exit 2; }
+[[ "$(git -C "$REPO" remote get-url origin 2>/dev/null)" == "$EXPECTED_REMOTE" ]] || {
+    printf 'Managed checkout has an unexpected origin: %s\n' "$REPO" >&2
+    exit 2
+}
+git -C "$REPO" fetch --quiet origin main || exit 2
+behind="$(git -C "$REPO" rev-list --count HEAD..refs/remotes/origin/main)" || exit 2
+((behind > 0))
