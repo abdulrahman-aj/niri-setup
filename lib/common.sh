@@ -88,16 +88,12 @@ require_intel_graphics() {
     info "Intel graphics detected"
 }
 
-valid_dotfiles_remote() {
-    [[ "$1" == "$DOTFILES_REPO_HTTPS" || "$1" == "$DOTFILES_REPO_SSH" ]]
-}
-
 validate_existing_dotfiles() {
     local dotdir="$REAL_HOME/.dotfiles" remote
     [[ -e "$dotdir" ]] || return 0
     [[ -d "$dotdir/.git" ]] || { err "${dotdir} exists but is not a Git repository."; exit 1; }
-    remote="$(git -C "$dotdir" config --get remote.origin.url || true)"
-    valid_dotfiles_remote "$remote" || {
+    git_remote_matches "$dotdir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH" || {
+        remote="$(git -C "$dotdir" config --get remote.origin.url || true)"
         err "${dotdir} has an unexpected origin: ${remote:-none}"
         exit 1
     }
@@ -121,6 +117,12 @@ verify_checksum() {
     local actual
     actual="$(sha256sum "$1" | awk '{print $1}')"
     [[ "$actual" == "$2" ]]
+}
+
+download_and_verify() {
+    local url=$1 sha256=$2 dest=$3
+    curl -fsSL "$url" -o "$dest" || { err "Download failed: ${url}"; return 1; }
+    verify_checksum "$dest" "$sha256" || { err "Checksum verification failed: ${url}"; return 1; }
 }
 
 timestamp() { date +%Y%m%d-%H%M%S; }

@@ -789,10 +789,8 @@ test_docker_orchestration_uses_focused_steps() {
 }
 
 test_docker_toggle_helper_transitions() {
-    local dir state systemctl_mock sudo_mock helper
+    local dir state helper
     dir="$(mktemp -d)"; state="$dir/state"; helper="$ROOT_DIR/bin/docker-toggle"
-    systemctl_mock="$dir/systemctl"; sudo_mock="$dir/sudo"
-    printf 'inactive\n' >"$state"
     # shellcheck disable=SC2016 # These lines form a script evaluated later.
     printf '%s\n' '#!/usr/bin/env bash' \
         'state=$DOCKER_TEST_STATE' \
@@ -800,18 +798,20 @@ test_docker_toggle_helper_transitions() {
         '  is-active) [[ "$(cat "$state")" == active ]] ;;' \
         '  start) printf "active\n" >"$state" ;;' \
         '  stop) printf "inactive\n" >"$state" ;;' \
-        'esac' >"$systemctl_mock"
-    printf '%s\n' '#!/usr/bin/env bash' 'exec "$@"' >"$sudo_mock"
-    chmod +x "$systemctl_mock" "$sudo_mock"
+        'esac' >"$dir/systemctl"
+    printf '%s\n' '#!/usr/bin/env bash' 'exec "$@"' >"$dir/sudo"
+    chmod +x "$dir/systemctl" "$dir/sudo"
+    export PATH="$dir:$PATH" DOCKER_TEST_STATE="$state"
+    printf 'inactive\n' >"$state"
     [[ -x "$helper" ]] || return 1
-    [[ "$(DOCKER_TEST_STATE="$state" SYSTEMCTL="$systemctl_mock" SUDO="$sudo_mock" "$helper" status)" == inactive ]] || return 1
-    DOCKER_TEST_STATE="$state" SYSTEMCTL="$systemctl_mock" SUDO="$sudo_mock" "$helper" start &>/dev/null || return 1
+    [[ "$("$helper" status)" == inactive ]] || return 1
+    "$helper" start &>/dev/null || return 1
     [[ "$(cat "$state")" == active ]] || return 1
-    DOCKER_TEST_STATE="$state" SYSTEMCTL="$systemctl_mock" SUDO="$sudo_mock" "$helper" toggle &>/dev/null || return 1
+    "$helper" toggle &>/dev/null || return 1
     [[ "$(cat "$state")" == inactive ]] || return 1
-    DOCKER_TEST_STATE="$state" SYSTEMCTL="$systemctl_mock" SUDO="$sudo_mock" "$helper" stop &>/dev/null || return 1
+    "$helper" stop &>/dev/null || return 1
     [[ "$(cat "$state")" == inactive ]] || return 1
-    if DOCKER_TEST_STATE="$state" SYSTEMCTL="$systemctl_mock" SUDO="$sudo_mock" "$helper" invalid &>/dev/null; then
+    if "$helper" invalid &>/dev/null; then
         return 1
     fi
     rm -rf "$dir"
@@ -853,8 +853,11 @@ test_launch_or_focus_behaviors() {
     focus_log="$dir/focus.log"
     launch_log="$dir/launch.log"
     marker="$dir/launched"
-    state_dir="$dir/state"
     hostile="$dir/should-not-exist"
+    PATH="$dir:$ROOT_DIR/bin:$(dirname "$BREW_BIN"):$PATH"
+    export XDG_RUNTIME_DIR="$dir/run"
+    export WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log"
+    state_dir="$XDG_RUNTIME_DIR/launch-or-focus"
     # shellcheck disable=SC2016 # These scripts are test doubles evaluated later.
     printf '%s\n' \
         '#!/usr/bin/env bash' \
@@ -882,14 +885,8 @@ test_launch_or_focus_behaviors() {
     rm -f "$marker"
     : >"$launch_log"
     : >"$focus_log"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker "\$(touch $hostile)"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker --debug
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker "$tui_helper" lazydocker "\$(touch $hostile)"
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker "$tui_helper" lazydocker --debug
     [[ "$(grep -Fxc '<--app-id=local.tui.lazydocker>' "$launch_log")" == 1 ]] || return 1
     grep -Fxq 'msg action focus-window --id 88' "$focus_log" || return 1
     grep -Fxq "<\$(touch $hostile)>" "$launch_log" || return 1
@@ -898,16 +895,10 @@ test_launch_or_focus_behaviors() {
     rm -f "$marker"
     : >"$launch_log"
     : >"$focus_log"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker SETSID_DELAY=0.3 \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker &
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker SETSID_DELAY=0.3 "$tui_helper" lazydocker &
     first_pid=$!
     sleep 0.05
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker SETSID_DELAY=0.3 \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker &
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker SETSID_DELAY=0.3 "$tui_helper" lazydocker &
     second_pid=$!
     wait "$first_pid"
     wait "$second_pid"
@@ -915,85 +906,120 @@ test_launch_or_focus_behaviors() {
 
     rm -f "$marker"
     : >"$launch_log"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" lazydocker
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.lazydocker "$tui_helper" lazydocker
     [[ "$(grep -Fxc '<--app-id=local.tui.lazydocker>' "$launch_log")" == 1 ]] || return 1
 
     rm -f "$marker"
     : >"$launch_log"
-    if WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        WINDOW_WAIT_ATTEMPTS=1 LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" \
-        "$tui_helper" lazydocker 2>/dev/null; then
+    if "$tui_helper" lazydocker 2>/dev/null; then
         return 1
     fi
     grep -Fxq '<--app-id=local.tui.lazydocker>' "$launch_log" || return 1
 
     rm -f "$marker"
     : >"$launch_log"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.btop \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$tui_helper" btop
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=local.tui.btop "$tui_helper" btop
     grep -Fxq '<--app-id=local.tui.btop>' "$launch_log" || return 1
 
     mkdir -p "$state_dir"
-    printf '77\n' >"$state_dir/webapp-notion.window-id"
+    printf '77\n' >"$state_dir/niri-webapp-notion.window-id"
     printf '[{"id":77,"app_id":"google-chrome","is_focused":false}]\n' >"$windows_file"
     : >"$focus_log"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-    LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$webapp_helper" notion https://www.notion.so
+    "$webapp_helper" notion https://www.notion.so
     grep -Fxq 'msg action focus-window --id 77' "$focus_log" || return 1
 
     printf '[]\n' >"$windows_file"
     rm -f "$marker"
     : >"$launch_log"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" LAUNCH_MARKER="$marker" \
-        LAUNCH_APP_ID=niri-webapp-notion NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$webapp_helper" notion https://www.notion.so
-    [[ "$(cat "$state_dir/webapp-notion.window-id")" == 88 ]] || return 1
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=niri-webapp-notion "$webapp_helper" notion https://www.notion.so
+    [[ "$(cat "$state_dir/niri-webapp-notion.window-id")" == 88 ]] || return 1
     grep -Fxq '<--class=niri-webapp-notion>' "$launch_log" || return 1
 
-    rm -f "$marker" "$state_dir/webapp-reddit.window-id"
+    rm -f "$marker" "$state_dir/niri-webapp-reddit.window-id"
     : >"$launch_log"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" LAUNCH_MARKER="$marker" \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" "$webapp_helper" reddit https://www.reddit.com
-    [[ "$(cat "$state_dir/webapp-reddit.window-id")" == 88 ]] || return 1
+    LAUNCH_MARKER="$marker" "$webapp_helper" reddit https://www.reddit.com
+    [[ "$(cat "$state_dir/niri-webapp-reddit.window-id")" == 88 ]] || return 1
     grep -Fxq '<--app=https://www.reddit.com>' "$launch_log" || return 1
     grep -Fxq '<--class=niri-webapp-reddit>' "$launch_log" || return 1
 
-    rm -f "$marker" "$state_dir/webapp-chatgpt.window-id"
+    rm -f "$marker" "$state_dir/niri-webapp-chatgpt.window-id"
     : >"$launch_log"
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" LAUNCH_MARKER="$marker" \
-        LAUNCH_APP_ID=niri-webapp-chatgpt SETSID_DELAY=0.3 NIRI="$niri_mock" SETSID="$setsid_mock" \
-        JQ="$(dirname "$BREW_BIN")/jq" LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" \
-        "$webapp_helper" chatgpt https://chatgpt.com &
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=niri-webapp-chatgpt SETSID_DELAY=0.3 "$webapp_helper" chatgpt https://chatgpt.com &
     first_pid=$!
     sleep 0.05
-    WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" LAUNCH_MARKER="$marker" \
-        LAUNCH_APP_ID=niri-webapp-chatgpt SETSID_DELAY=0.3 NIRI="$niri_mock" SETSID="$setsid_mock" \
-        JQ="$(dirname "$BREW_BIN")/jq" LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" \
-        "$webapp_helper" chatgpt https://chatgpt.com &
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=niri-webapp-chatgpt SETSID_DELAY=0.3 "$webapp_helper" chatgpt https://chatgpt.com &
     second_pid=$!
     wait "$first_pid"
     wait "$second_pid"
     [[ "$(grep -Fxc '<--class=niri-webapp-chatgpt>' "$launch_log")" == 1 ]] || return 1
 
-    rm -f "$marker" "$state_dir/webapp-gmail.window-id"
+    rm -f "$marker" "$state_dir/niri-webapp-gmail.window-id"
     : >"$launch_log"
-    if WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log" \
-        NIRI="$niri_mock" SETSID="$setsid_mock" JQ="$(dirname "$BREW_BIN")/jq" \
-        WINDOW_WAIT_ATTEMPTS=1 LAUNCH_OR_FOCUS_STATE_DIR="$state_dir" \
-        "$webapp_helper" gmail https://mail.google.com 2>/dev/null; then
+    if "$webapp_helper" gmail https://mail.google.com 2>/dev/null; then
         return 1
     fi
     grep -Fxq '<--class=niri-webapp-gmail>' "$launch_log" || return 1
     if grep -Fq '<fd9-open>' "$launch_log.fd" 2>/dev/null; then return 1; fi
     if grep -Fq eval "$webapp_helper" || grep -Fq eval "$tui_helper"; then return 1; fi
+    rm -rf "$dir"
+}
+
+test_launch_or_focus_base_contract() {
+    local dir base niri_mock setsid_mock windows_file focus_log launch_log marker state_dir
+    dir="$(mktemp -d)"
+    base="$ROOT_DIR/bin/launch-or-focus"
+    niri_mock="$dir/niri"
+    setsid_mock="$dir/setsid"
+    windows_file="$dir/windows.json"
+    focus_log="$dir/focus.log"
+    launch_log="$dir/launch.log"
+    marker="$dir/launched"
+    PATH="$dir:$(dirname "$BREW_BIN"):$PATH"
+    export XDG_RUNTIME_DIR="$dir/run"
+    export WINDOWS_FILE="$windows_file" FOCUS_LOG="$focus_log" LAUNCH_LOG="$launch_log"
+    state_dir="$XDG_RUNTIME_DIR/launch-or-focus"
+    # shellcheck disable=SC2016 # These scripts are test doubles evaluated later.
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'if [[ "$*" == "msg -j windows" ]]; then' \
+        '    if [[ -n "${LAUNCH_MARKER:-}" && -e "$LAUNCH_MARKER" ]]; then' \
+        '        printf "[{\"id\":99,\"app_id\":\"%s\",\"is_focused\":true}]\\n" "${LAUNCH_APP_ID:-x}"' \
+        '    else' \
+        '        cat "$WINDOWS_FILE"' \
+        '    fi' \
+        'elif [[ "$1 $2 $3" == "msg action focus-window" ]]; then' \
+        '    printf "%s\\n" "$*" >>"$FOCUS_LOG"' \
+        'else' \
+        '    exit 2' \
+        'fi' >"$niri_mock"
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'printf "<%s>\\n" "$@" >>"$LAUNCH_LOG"' \
+        '[[ -z "${LAUNCH_MARKER:-}" ]] || touch "$LAUNCH_MARKER"' \
+        >"$setsid_mock"
+    chmod +x "$niri_mock" "$setsid_mock"
+
+    # Focus an existing window by app_id; never launch.
+    printf '[{"id":42,"app_id":"test.app","is_focused":false}]\n' >"$windows_file"
+    : >"$focus_log"; : >"$launch_log"; rm -f "$marker"
+    "$base" test.app placeholder
+    grep -Fxq 'msg action focus-window --id 42' "$focus_log" || { rm -rf "$dir"; return 1; }
+    [[ ! -s "$launch_log" ]] || { rm -rf "$dir"; return 1; }
+    [[ "$(cat "$state_dir/test.app.window-id")" == 42 ]] || { rm -rf "$dir"; return 1; }
+
+    # Launch and cache the new window when none matches.
+    printf '[]\n' >"$windows_file"
+    : >"$focus_log"; : >"$launch_log"; rm -f "$marker" "$state_dir/test.app2.window-id"
+    LAUNCH_MARKER="$marker" LAUNCH_APP_ID=test.app2 "$base" test.app2 mycmd --flag
+    grep -Fxq '<mycmd>' "$launch_log" || { rm -rf "$dir"; return 1; }
+    grep -Fxq '<--flag>' "$launch_log" || { rm -rf "$dir"; return 1; }
+    [[ "$(cat "$state_dir/test.app2.window-id")" == 99 ]] || { rm -rf "$dir"; return 1; }
+
+    # Reject a call without a launch command.
+    if "$base" test.app3 2>/dev/null; then
+        rm -rf "$dir"; return 1
+    fi
+    if grep -Fq eval "$base"; then rm -rf "$dir"; return 1; fi
     rm -rf "$dir"
 }
 
@@ -1012,28 +1038,25 @@ test_webapp_manifest_delegates_to_installer() {
 }
 
 test_webapp_install_creates_idempotent_launcher() {
-    local dir applications icons curl_mock database_mock database_log helper desktop
-    dir="$(mktemp -d)"; applications="$dir/applications"; icons="$dir/icons"
-    curl_mock="$dir/curl"; database_mock="$dir/update-desktop-database"; database_log="$dir/database.log"
+    local dir applications icons database_log helper desktop
+    dir="$(mktemp -d)"
+    applications="$dir/.local/share/applications"
+    icons="$dir/.local/share/icons/hicolor/128x128/apps"
+    database_log="$dir/database.log"
     helper="$ROOT_DIR/bin/webapp-install"; desktop="$applications/niri-webapp-notion.desktop"
     # shellcheck disable=SC2016 # These lines form test scripts evaluated later.
-    printf '%s\n' '#!/usr/bin/env bash' 'while (($#)); do if [[ "$1" == -o ]]; then output=$2; shift 2; else shift; fi; done' 'printf png >"$output"' >"$curl_mock"
-    printf '%s\n' '#!/usr/bin/env bash' 'printf "%s\n" "$*" >>"$WEBAPP_DATABASE_LOG"' >"$database_mock"
-    chmod +x "$curl_mock" "$database_mock"
-    WEBAPP_APPLICATIONS_DIR="$applications" WEBAPP_ICONS_DIR="$icons" WEBAPP_CURL="$curl_mock" \
-        WEBAPP_UPDATE_DESKTOP_DATABASE="$database_mock" WEBAPP_DATABASE_LOG="$database_log" \
-        "$helper" notion Notion https://www.notion.so notion.so || return 1
+    printf '%s\n' '#!/usr/bin/env bash' 'while (($#)); do if [[ "$1" == -o ]]; then output=$2; shift 2; else shift; fi; done' 'printf png >"$output"' >"$dir/curl"
+    printf '%s\n' '#!/usr/bin/env bash' 'printf "%s\n" "$*" >>"$WEBAPP_DATABASE_LOG"' >"$dir/update-desktop-database"
+    chmod +x "$dir/curl" "$dir/update-desktop-database"
+    export HOME="$dir" PATH="$dir:$PATH" WEBAPP_DATABASE_LOG="$database_log"
+    "$helper" notion Notion https://www.notion.so notion.so || return 1
     grep -Fxq 'Name=Notion' "$desktop"
     grep -Fxq 'Exec=/usr/local/bin/webapp-launch-or-focus notion https://www.notion.so' "$desktop"
     grep -Fxq 'Icon=niri-webapp-notion' "$desktop"
     [[ -s "$icons/niri-webapp-notion.png" ]]
-    WEBAPP_APPLICATIONS_DIR="$applications" WEBAPP_ICONS_DIR="$icons" WEBAPP_CURL="$curl_mock" \
-        WEBAPP_UPDATE_DESKTOP_DATABASE="$database_mock" WEBAPP_DATABASE_LOG="$database_log" \
-        "$helper" notion Notion https://www.notion.so notion.so || return 1
-    [[ "$(find "$dir" -name '*.backup-*' | wc -l)" -eq 0 ]] || return 1
-    WEBAPP_APPLICATIONS_DIR="$applications" WEBAPP_ICONS_DIR="$icons" WEBAPP_CURL="$curl_mock" \
-        WEBAPP_UPDATE_DESKTOP_DATABASE="$database_mock" WEBAPP_DATABASE_LOG="$database_log" \
-        "$helper" notion 'Notion App' https://www.notion.so notion.so || return 1
+    "$helper" notion Notion https://www.notion.so notion.so || return 1
+    [[ "$(find "$applications" "$icons" -name '*.backup-*' | wc -l)" -eq 0 ]] || return 1
+    "$helper" notion 'Notion App' https://www.notion.so notion.so || return 1
     grep -Fxq 'Name=Notion App' "$desktop"
     [[ "$(find "$applications" -name 'niri-webapp-notion.desktop.backup-*' | wc -l)" -eq 1 ]]
     [[ "$(wc -l <"$database_log")" -eq 3 ]]
@@ -1043,15 +1066,15 @@ test_webapp_install_creates_idempotent_launcher() {
 test_webapp_install_validates_and_falls_back() {
     local dir helper desktop
     dir="$(mktemp -d)"; helper="$ROOT_DIR/bin/webapp-install"
-    WEBAPP_APPLICATIONS_DIR="$dir/applications" WEBAPP_ICONS_DIR="$dir/icons" WEBAPP_CURL=/usr/bin/false \
-        WEBAPP_UPDATE_DESKTOP_DATABASE="$dir/not-installed" \
-        "$helper" chatgpt ChatGPT https://chatgpt.com chatgpt.com 2>/dev/null || return 1
-    desktop="$dir/applications/niri-webapp-chatgpt.desktop"
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 1' >"$dir/curl"
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$dir/update-desktop-database"
+    chmod +x "$dir/curl" "$dir/update-desktop-database"
+    export HOME="$dir" PATH="$dir:$PATH"
+    "$helper" chatgpt ChatGPT https://chatgpt.com chatgpt.com 2>/dev/null || return 1
+    desktop="$dir/.local/share/applications/niri-webapp-chatgpt.desktop"
     grep -Fxq 'Icon=google-chrome' "$desktop" || return 1
-    if WEBAPP_APPLICATIONS_DIR="$dir/applications" WEBAPP_ICONS_DIR="$dir/icons" \
-        "$helper" 'bad id' Bad https://example.com example.com 2>/dev/null; then return 1; fi
-    if WEBAPP_APPLICATIONS_DIR="$dir/applications" WEBAPP_ICONS_DIR="$dir/icons" \
-        "$helper" valid Bad http://example.com example.com 2>/dev/null; then return 1; fi
+    if "$helper" 'bad id' Bad https://example.com example.com 2>/dev/null; then return 1; fi
+    if "$helper" valid Bad http://example.com example.com 2>/dev/null; then return 1; fi
     rm -rf "$dir"
 }
 
@@ -1134,17 +1157,16 @@ test_commands_install_every_bin_script_and_reject_invalid_entries() {
 
 test_runtime_commands_and_workstation_modules_are_organized() {
     local command component
-    for command in docker-toggle tui-launch-or-focus webapp-install webapp-launch-or-focus workstation-update workstation-update-status; do
+    for command in docker-toggle launch-or-focus tui-launch-or-focus webapp-install webapp-launch-or-focus workstation-update workstation-update-status; do
         [[ -x "$ROOT_DIR/bin/$command" ]] || return 1
     done
     for command in docker-toggle launch-or-focus-tui launch-or-focus-webapp workstation-update-status; do
         [[ ! -e "$ROOT_DIR/assets/$command" ]] || return 1
     done
-    for component in desktop development commands webapps maintenance docker; do
+    for component in desktop development dotfiles commands webapps maintenance docker; do
         [[ -r "$ROOT_DIR/modules/workstation/$component.sh" ]] || return 1
-        grep -Fq "source_required \"\$ROOT_DIR/modules/workstation/$component.sh\"" \
-            "$ROOT_DIR/modules/2-workstation.sh" || return 1
     done
+    grep -Fq 'source_modules "$ROOT_DIR/modules/workstation"' "$ROOT_DIR/modules/2-workstation.sh" || return 1
     grep -Fq 'exec "$repo_root/install.sh" "$@"' "$ROOT_DIR/bin/workstation-update"
 }
 
@@ -1384,9 +1406,16 @@ test_git_defaults_are_exact() {
 }
 
 test_both_dotfiles_origins_are_accepted() {
-    valid_dotfiles_remote "$DOTFILES_REPO_HTTPS"
-    valid_dotfiles_remote "$DOTFILES_REPO_SSH"
-    ! valid_dotfiles_remote https://example.com/dotfiles.git
+    local dir
+    dir="$(mktemp -d)"
+    git init -q "$dir"
+    git -C "$dir" remote add origin "$DOTFILES_REPO_HTTPS"
+    git_remote_matches "$dir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH" || { rm -rf "$dir"; return 1; }
+    git -C "$dir" remote set-url origin "$DOTFILES_REPO_SSH"
+    git_remote_matches "$dir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH" || { rm -rf "$dir"; return 1; }
+    git -C "$dir" remote set-url origin https://example.com/dotfiles.git
+    if git_remote_matches "$dir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH"; then rm -rf "$dir"; return 1; fi
+    rm -rf "$dir"
 }
 
 test_fish_brew_initialization_must_precede_prefix() {
@@ -1715,6 +1744,7 @@ run_test "workstation update plugin is independent from Docker" test_workstation
 run_test "workstation update status detects remote commits" test_workstation_update_status_detects_remote_commits
 run_test "workstation update DMS plugin has expected actions" test_workstation_update_plugin_contract
 run_test "split launch-or-focus helpers handle web apps and TUIs safely" test_launch_or_focus_behaviors
+run_test "launch-or-focus base focuses, launches, caches, and validates" test_launch_or_focus_base_contract
 run_test "web-app manifest delegates every entry to webapp-install" test_webapp_manifest_delegates_to_installer
 run_test "webapp-install creates idempotent backed-up launchers" test_webapp_install_creates_idempotent_launcher
 run_test "webapp-install validates input and falls back to Chrome" test_webapp_install_validates_and_falls_back

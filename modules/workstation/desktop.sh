@@ -10,11 +10,7 @@ run_dankinstall() {
     archive="$tempdir/dankinstall.gz"
     installer="$tempdir/dankinstall"
     trap 'rm -rf "${tempdir:-}"; trap - RETURN' RETURN
-    curl -fsSL "$DANKINSTALL_URL" -o "$archive"
-    verify_checksum "$archive" "$DANKINSTALL_SHA256" || {
-        err "DankInstall checksum verification failed."
-        return 1
-    }
+    download_and_verify "$DANKINSTALL_URL" "$DANKINSTALL_SHA256" "$archive" || return 1
     gzip -dc "$archive" >"$installer"
     chmod +x "$installer"
     info "DankInstall is interactive; select Niri and Ghostty in the TUI."
@@ -101,11 +97,7 @@ install_nerd_font() {
     tempdir="$(mktemp -d)"
     archive="$tempdir/JetBrainsMono.tar.xz"
     trap 'rm -rf "${tempdir:-}"; trap - RETURN' RETURN
-    curl -fsSL "$NERD_FONT_URL" -o "$archive"
-    verify_checksum "$archive" "$NERD_FONT_SHA256" || {
-        err "Nerd Font checksum verification failed."
-        return 1
-    }
+    download_and_verify "$NERD_FONT_URL" "$NERD_FONT_SHA256" "$archive" || return 1
     mkdir -p "$font_dir"
     tar -xJf "$archive" -C "$font_dir" --wildcards '*.ttf'
     fc-cache -f "$font_dir"

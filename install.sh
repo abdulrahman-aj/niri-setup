@@ -19,6 +19,8 @@ sync_managed_checkout() {
         printf 'Install path exists but is not a Git repository: %s\n' "$INSTALL_DIR" >&2
         return 1
     }
+    # Self-contained on purpose: this script is run via `curl | bash` before the
+    # repository (and lib/git-remote.sh) exists, so it cannot share that helper.
     [[ "$(git -C "$INSTALL_DIR" remote get-url origin)" == "$REPO_URL" ]] || {
         printf 'Managed checkout has an unexpected origin: %s\n' "$INSTALL_DIR" >&2
         return 1

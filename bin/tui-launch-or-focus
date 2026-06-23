@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016 # jq programs intentionally use jq variables in single quotes.
+# Launch or focus a terminal UI window, matched by a derived Niri app_id.
 
 set -euo pipefail
-
-readonly NIRI=${NIRI:-/usr/bin/niri}
-readonly JQ=${JQ:-/home/linuxbrew/.linuxbrew/bin/jq}
-readonly TERMINAL_EXEC=${TERMINAL_EXEC:-/usr/bin/xdg-terminal-exec}
-readonly SETSID=${SETSID:-/usr/bin/setsid}
-readonly FLOCK=${FLOCK:-/usr/bin/flock}
-readonly STATE_ROOT="${LAUNCH_OR_FOCUS_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp/launch-or-focus-$UID}/launch-or-focus}"
-readonly WINDOW_WAIT_ATTEMPTS=${WINDOW_WAIT_ATTEMPTS:-50}
 
 usage() {
     printf 'Usage: tui-launch-or-focus <command> [arguments...]\n' >&2
@@ -17,42 +9,10 @@ usage() {
 }
 
 (($#)) || usage
-[[ "$WINDOW_WAIT_ATTEMPTS" =~ ^[1-9][0-9]*$ ]] || { printf 'Invalid window wait attempt count: %s\n' "$WINDOW_WAIT_ATTEMPTS" >&2; exit 2; }
 
 name="$(basename "$1" | tr '[:upper:]_' '[:lower:]-' | sed 's/[^a-z0-9-]//g; s/^-*//; s/-*$//')"
 [[ -n "$name" ]] || name=tui
 [[ "$name" =~ ^[a-z] ]] || name="app-$name"
-readonly NAME=$name APP_ID="local.tui.$name"
+readonly APP_ID="local.tui.$name"
 
-windows() { "$NIRI" msg -j windows; }
-
-find_window() {
-    windows | "$JQ" -r --arg app_id "$APP_ID" \
-        '[.[] | select(.app_id == $app_id)] | (map(select(.is_focused)) + .)[0].id // empty'
-}
-
-focus_window() {
-    [[ "$1" =~ ^[0-9]+$ ]] || return 1
-    "$NIRI" msg action focus-window --id "$1" >/dev/null
-}
-
-mkdir -p "$STATE_ROOT"
-chmod 0700 "$STATE_ROOT"
-readonly LOCK_FILE="$STATE_ROOT/tui-$NAME.lock"
-exec 9>"$LOCK_FILE"
-"$FLOCK" -n 9 || exit 0
-
-id="$(find_window)"
-if [[ -n "$id" ]]; then
-    focus_window "$id"
-    exit 0
-fi
-
-"$SETSID" -f -- "$TERMINAL_EXEC" "--app-id=$APP_ID" -- "$@" 9>&- >/dev/null 2>&1
-for ((attempt = 0; attempt < WINDOW_WAIT_ATTEMPTS; attempt++)); do
-    sleep 0.1
-    id="$(find_window)"
-    [[ -z "$id" ]] || exit 0
-done
-printf 'Launched TUI but could not identify its Niri window: %s\n' "$NAME" >&2
-exit 1
+exec launch-or-focus "$APP_ID" xdg-terminal-exec "--app-id=$APP_ID" -- "$@"

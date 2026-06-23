@@ -3,11 +3,8 @@
 
 set -euo pipefail
 
-readonly SYSTEMCTL=${SYSTEMCTL:-/usr/bin/systemctl}
-readonly SUDO=${SUDO:-/usr/bin/sudo}
-
 docker_is_active() {
-    "$SYSTEMCTL" is-active --quiet docker.service
+    systemctl is-active --quiet docker.service
 }
 
 docker_status() {
@@ -19,13 +16,13 @@ docker_status() {
 }
 
 docker_start() {
-    "$SUDO" "$SYSTEMCTL" start docker.service docker.socket
+    sudo systemctl start docker.service docker.socket
     docker_is_active
     printf 'Docker started\n'
 }
 
 docker_stop() {
-    "$SUDO" "$SYSTEMCTL" stop docker.service docker.socket
+    sudo systemctl stop docker.service docker.socket
     if docker_is_active; then
         printf 'Docker did not stop\n' >&2
         return 1

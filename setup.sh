@@ -49,6 +49,7 @@ source_modules() {
     fi
 }
 
+source_required "$ROOT_DIR/lib/git-remote.sh"
 source_required "$ROOT_DIR/lib/common.sh"
 source_modules "$ROOT_DIR/modules" || exit 1
 

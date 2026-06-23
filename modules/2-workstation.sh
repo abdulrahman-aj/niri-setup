@@ -8,12 +8,7 @@ readonly CORE_PACKAGES=(
 readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli steipete/tap/codexbar)
 readonly MISE_TOOLS=(opencode codex claude-code)
 
-source_required "$ROOT_DIR/modules/workstation/desktop.sh"
-source_required "$ROOT_DIR/modules/workstation/development.sh"
-source_required "$ROOT_DIR/modules/workstation/commands.sh"
-source_required "$ROOT_DIR/modules/workstation/webapps.sh"
-source_required "$ROOT_DIR/modules/workstation/maintenance.sh"
-source_required "$ROOT_DIR/modules/workstation/docker.sh"
+source_modules "$ROOT_DIR/modules/workstation"
 
 run_workstation_phase() {
     step "Core workstation"
