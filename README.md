@@ -59,7 +59,7 @@ Docker to disabled. DankInstall and setup-invoked DMS commands use
   Firefox/LibreOffice/select GNOME extras, then full upgrade.
 - **Desktop stack:** enables the DMS and DankLinux COPRs; installs Niri, DMS,
   Alacritty, Zed, JetBrainsMono Nerd Font, Homebrew, CLI tools, and rootful
-  Docker CE (and removes Ghostty if present). Sets Chrome as default browser,
+  Docker CE. Sets Chrome as default browser,
   Alacritty as XDG terminal, Fish as login shell, and `graphical.target` as the
   default target.
 - **Dev environment:** configures Git, requires GitHub CLI SSH auth, clones or

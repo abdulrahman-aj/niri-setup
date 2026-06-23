@@ -24,7 +24,6 @@ run_workstation_phase() {
     install_zed
     install_nerd_font
     configure_xdg_terminal
-    remove_ghostty
     configure_niri
     install_niri_edge_indicators
     configure_git

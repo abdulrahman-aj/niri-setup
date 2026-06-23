@@ -555,7 +555,6 @@ test_workstation_dependency_order() {
         install_zed() { printf '%s\n' zed >>"$calls"; }
         install_nerd_font() { printf '%s\n' font >>"$calls"; }
         configure_xdg_terminal() { printf '%s\n' terminal >>"$calls"; }
-        remove_ghostty() { printf '%s\n' remove-ghostty >>"$calls"; }
         configure_niri() { printf '%s\n' niri >>"$calls"; }
         install_niri_edge_indicators() { printf '%s\n' indicators >>"$calls"; }
         configure_git() { printf '%s\n' git >>"$calls"; }
@@ -569,7 +568,7 @@ test_workstation_dependency_order() {
         set_graphical_target() { printf '%s\n' target >>"$calls"; }
         run_workstation_phase
     )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal remove-ghostty niri indicators git github dotfiles fish-plugins mise maintenance docker dirs target ' ]]
+    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal niri indicators git github dotfiles fish-plugins mise maintenance docker dirs target ' ]]
     rm -f "$calls"
 }
 

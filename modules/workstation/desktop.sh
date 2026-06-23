@@ -116,14 +116,6 @@ configure_xdg_terminal() {
     }
 }
 
-remove_ghostty() {
-    if rpm -q ghostty &>/dev/null; then
-        s dnf remove -y ghostty
-        log "Ghostty removed"
-    fi
-    rm -rf "$REAL_HOME/.config/ghostty"
-}
-
 user_systemctl_cmd() { systemctl --user "$@"; }
 
 install_niri_edge_indicators() {
