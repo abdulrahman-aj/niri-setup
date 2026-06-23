@@ -8,16 +8,15 @@
       "name": "Main Bar",
       "enabled": true,
       "position": 0,
-      "screenPreferences": [
-        "all"
-      ],
+      "screenPreferences": ["all"],
       "showOnLastDisplay": true,
-      "leftWidgets": [
-        "launcherButton",
-        "workspaceSwitcher"
-      ],
+      "leftWidgets": ["launcherButton", "workspaceSwitcher"],
       "centerWidgets": [
-        "music",
+        {
+          "id": "music",
+          "enabled": true,
+          "mediaSize": 0
+        },
         "clock",
         {
           "id": "notificationButton",
