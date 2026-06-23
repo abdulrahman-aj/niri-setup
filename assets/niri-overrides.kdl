@@ -16,6 +16,12 @@ layout {
     default-column-width { proportion 1.0; }
 }
 
+gestures {
+    hot-corners {
+        top-left
+    }
+}
+
 switch-events {
     lid-close {
         spawn "dms" "ipc" "call" "lock" "lock";
