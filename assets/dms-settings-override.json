@@ -1,3 +1,5 @@
 {
-  "use24HourClock": false
+  "use24HourClock": false,
+  "showWorkspaceIndex": true,
+  "showOccupiedWorkspacesOnly": true
 }
