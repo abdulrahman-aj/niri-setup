@@ -55,7 +55,8 @@ Docker to disabled. DankInstall and setup-invoked DMS commands use
 
 - **System:** DNF with 10 parallel downloads and `defaultyes=True`; timezone
   `Asia/Amman` with `en_US.UTF-8` time locale and 12-hour clocks (repo-managed
-  DMS preferences merged over generated settings); installs Chrome, debloats
+  DMS preferences, including the frozen DankBar layout `barConfigs`, merged over
+  generated settings on every run); installs Chrome, debloats
   Firefox/LibreOffice/select GNOME extras, then full upgrade.
 - **Desktop stack:** enables the DMS and DankLinux COPRs; installs Niri, DMS,
   Alacritty, Zed, JetBrainsMono Nerd Font, Homebrew, CLI tools, and rootful
@@ -112,9 +113,9 @@ with `sha256sum`, update the recorded checksum, and run the tests.
 
 ## After installation
 
-Set `eDP-1` scale to `1.67` in DMS, then reboot or re-login. In DMS Settings,
-enable the local `dockerToggle` plugin and place it on DankBar, and add
-**Keyboard Layout Name** with its **Compact** option to show `EN`/`AR`.
+Set `eDP-1` scale to `1.67` in DMS, then reboot or re-login. The DankBar layout
+(including the `dockerToggle` widget and the **Keyboard Layout Name** `EN`/`AR`
+indicator) ships frozen in `barConfigs`, so no manual DankBar arrangement is needed.
 
 Verify:
 

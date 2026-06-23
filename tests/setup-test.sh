@@ -258,6 +258,19 @@ test_dms_settings_override_merges_and_is_idempotent() {
     rm -rf "$home" "$override"
 }
 
+test_dms_settings_override_freezes_dankbar_layout() {
+    local override="$ROOT_DIR/assets/dms-settings-override.json"
+    jq -e 'type == "object" and (.barConfigs | type == "array") and (.barConfigs | length == 1)' "$override" &>/dev/null || return 1
+    jq -e '
+        (.barConfigs[0]) as $b
+        | ($b.rightWidgets | map(if type == "object" then .id else . end)) as $right
+        | ($b.leftWidgets | index("workspaceSwitcher")) != null
+          and ($right | index("dockerToggle")) != null
+          and ($right | index("keyboard_layout_name")) != null
+          and ($right | index("controlCenterButton")) != null
+    ' "$override" &>/dev/null
+}
+
 test_invalid_dms_json_preserves_settings() {
     local home override digest missing
     home="$(mktemp -d)"
@@ -1659,6 +1672,7 @@ run_test "healthy greeter skips repair" test_greeter_healthy_skips_repair
 run_test "unhealthy greeter is repaired" test_greeter_repairs_failed_status
 run_test "DMS commands select sudo and forward status" test_dms_commands_select_sudo_and_forward_status
 run_test "DMS settings override merges safely and idempotently" test_dms_settings_override_merges_and_is_idempotent
+run_test "DMS settings override freezes the DankBar layout" test_dms_settings_override_freezes_dankbar_layout
 run_test "invalid DMS JSON preserves existing settings" test_invalid_dms_json_preserves_settings
 run_test "unexpected dotfiles remote is rejected" test_unexpected_dotfiles_remote_rejected
 run_test "Stow conflicts stop dotfile installation" test_stow_conflict_stops_dotfile_install
