@@ -5,7 +5,6 @@ readonly DEBLOAT_EXACT=(
     gnome-clocks gnome-connections gnome-boxes simple-scan mediawriter
     gnome-software gnome-software-fedora-langpacks gnome-text-editor
     gnome-logs gnome-characters gnome-system-monitor yelp yelp-libs yelp-xsl
-    gnome-control-center gdm
 )
 readonly BOOTSTRAP_PACKAGES=(git pciutils)
 

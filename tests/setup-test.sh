@@ -652,7 +652,7 @@ test_debloat_allowlist_only() {
         rpm() { printf '%s\n' firefox firefox-langpacks libreoffice-core gnome-tour gnome-shell gdm nautilus kernel; }
         installed_debloat_packages
     })"
-    [[ "$actual" == $'firefox\nfirefox-langpacks\nlibreoffice-core\ngnome-tour\ngdm' ]]
+    [[ "$actual" == $'firefox\nfirefox-langpacks\nlibreoffice-core\ngnome-tour' ]]
 }
 
 test_debloat_noop_when_absent() {
