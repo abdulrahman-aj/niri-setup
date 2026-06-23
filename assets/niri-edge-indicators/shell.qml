@@ -136,10 +136,16 @@ ShellRoot {
                 id: pill
                 anchors.fill: parent
                 radius: width / 2
-                color: "#66000000"
+                color: hover.containsMouse ? "#80000000" : "#40000000"
+
+                Behavior on color {
+                    ColorAnimation { duration: 120 }
+                }
 
                 MouseArea {
+                    id: hover
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: Quickshell.execDetached(["niri", "msg", "action", "focus-column-left"])
                 }
@@ -196,10 +202,16 @@ ShellRoot {
                 id: pill
                 anchors.fill: parent
                 radius: width / 2
-                color: "#66000000"
+                color: hover.containsMouse ? "#80000000" : "#40000000"
+
+                Behavior on color {
+                    ColorAnimation { duration: 120 }
+                }
 
                 MouseArea {
+                    id: hover
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: Quickshell.execDetached(["niri", "msg", "action", "focus-column-right"])
                 }

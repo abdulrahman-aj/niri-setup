@@ -1303,6 +1303,7 @@ test_close_window_binding_is_mod_w() {
     grep -Fq 'focusedColumn > 1' "$indicator"
     grep -Fq 'focusedColumn < maximumColumn' "$indicator"
     grep -Fq 'cursorShape: Qt.PointingHandCursor' "$indicator"
+    grep -Fq 'hover.containsMouse' "$indicator"
     grep -Fq 'focus-column-left' "$indicator"
     grep -Fq 'focus-column-right' "$indicator"
     if grep -Fq 'open-fullscreen true' "$override"; then return 1; fi
