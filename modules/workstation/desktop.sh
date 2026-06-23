@@ -128,14 +128,6 @@ install_niri_edge_indicators() {
     log "Niri edge indicators installed"
 }
 
-enable_ghostty_daemon() {
-    # Plain enable (not --now): the daemon must be the single instance started at
-    # login before any terminal. Starting it mid-setup would clash with the
-    # Ghostty the user is running setup from and fail. It activates at next login.
-    user_systemctl_cmd enable app-com.mitchellh.ghostty.service
-    log "Ghostty systemd daemon enabled (starts at next login)"
-}
-
 ensure_niri_override_include() {
     local file=$1 generated
     generated="$(mktemp)"

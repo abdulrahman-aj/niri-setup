@@ -556,7 +556,6 @@ test_workstation_dependency_order() {
         install_zed() { printf '%s\n' zed >>"$calls"; }
         install_nerd_font() { printf '%s\n' font >>"$calls"; }
         configure_xdg_terminal() { printf '%s\n' terminal >>"$calls"; }
-        enable_ghostty_daemon() { printf '%s\n' ghostty-daemon >>"$calls"; }
         configure_niri() { printf '%s\n' niri >>"$calls"; }
         install_niri_edge_indicators() { printf '%s\n' indicators >>"$calls"; }
         configure_git() { printf '%s\n' git >>"$calls"; }
@@ -570,7 +569,7 @@ test_workstation_dependency_order() {
         set_graphical_target() { printf '%s\n' target >>"$calls"; }
         run_workstation_phase
     )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal ghostty-daemon niri indicators git github dotfiles fish-plugins mise maintenance docker dirs target ' ]]
+    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal niri indicators git github dotfiles fish-plugins mise maintenance docker dirs target ' ]]
     rm -f "$calls"
 }
 
@@ -1126,18 +1125,6 @@ test_niri_edge_indicators_are_installed_idempotently() {
     [[ "$(grep -c '^enable --now niri-edge-indicators.service$' "$calls")" -eq 2 ]] || return 1
     [[ "$(find "$home" -name '*.backup-*' | wc -l)" -eq 0 ]]
     rm -rf "$home" "$calls"
-}
-
-test_ghostty_daemon_is_enabled_idempotently() {
-    local calls
-    calls="$(mktemp)"
-    (
-        user_systemctl_cmd() { printf '%s\n' "$*" >>"$calls"; }
-        enable_ghostty_daemon
-        enable_ghostty_daemon
-    ) &>/dev/null || return 1
-    [[ "$(grep -c '^enable app-com.mitchellh.ghostty.service$' "$calls")" -eq 2 ]] || return 1
-    rm -f "$calls"
 }
 
 test_entrypoints_and_update_contract() {
@@ -1766,7 +1753,6 @@ run_test "webapp-install validates input and falls back to Chrome" test_webapp_i
 run_test "application shortcuts are complete" test_application_shortcuts_are_complete
 run_test "managed assets use backed-up idempotent symlinks" test_managed_symlink_is_idempotent_and_backed_up
 run_test "Niri edge indicators install idempotently" test_niri_edge_indicators_are_installed_idempotently
-run_test "Ghostty daemon enables idempotently" test_ghostty_daemon_is_enabled_idempotently
 run_test "setup entrypoints and updater contract are exact" test_entrypoints_and_update_contract
 run_test "all bin commands are installed and invalid entries are rejected" test_commands_install_every_bin_script_and_reject_invalid_entries
 run_test "runtime commands and workstation modules are domain-organized" test_runtime_commands_and_workstation_modules_are_organized
