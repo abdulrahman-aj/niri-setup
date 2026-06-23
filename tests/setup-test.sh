@@ -1334,7 +1334,7 @@ test_close_window_binding_is_mod_w() {
     local indicator="$ROOT_DIR/assets/niri-edge-indicators/shell.qml"
     grep -Fq 'match app-id=r#"^(dev\.zed\.Zed|Alacritty|local\.tui\..*)$"#' "$override"
     grep -Fq 'match app-id=r#"^(google-chrome|com.google.Chrome|niri-webapp-.*|chrome-.*-Default)$"#' "$override"
-    [[ "$(grep -c 'open-maximized true' "$override")" -eq 2 ]]
+    [[ "$(grep -c 'open-maximized true' "$override")" -eq 3 ]]
     grep -Fq 'default-column-width { proportion 1.0; }' "$override"
     grep -Fq 'hot-corners {' "$override"
     grep -Fq 'top-left' "$override"

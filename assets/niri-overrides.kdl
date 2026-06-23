@@ -38,6 +38,12 @@ window-rule {
     open-maximized true
 }
 
+window-rule {
+    match app-id=r#"^org\.gnome\.Nautilus$"#
+    open-maximized true
+    open-floating false
+}
+
 binds {
     Mod+Q hotkey-overlay-title=null { spawn "true"; }
     Mod+D hotkey-overlay-title=null { spawn "true"; }
