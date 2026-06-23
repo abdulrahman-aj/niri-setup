@@ -562,13 +562,12 @@ test_workstation_dependency_order() {
         install_dotfiles() { printf '%s\n' dotfiles >>"$calls"; }
         install_fish_plugins() { printf '%s\n' fish-plugins >>"$calls"; }
         install_mise_tools() { printf '%s\n' mise >>"$calls"; }
-        install_workstation_update_plugin() { printf '%s\n' maintenance >>"$calls"; }
         install_docker() { printf '%s\n' docker >>"$calls"; }
         create_xdg_dirs() { printf '%s\n' dirs >>"$calls"; }
         set_graphical_target() { printf '%s\n' target >>"$calls"; }
         run_workstation_phase
     )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal niri indicators git github dotfiles fish-plugins mise maintenance docker dirs target ' ]]
+    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal niri indicators git github dotfiles fish-plugins mise docker dirs target ' ]]
     rm -f "$calls"
 }
 
@@ -758,19 +757,6 @@ test_docker_configures_repo_service_and_group() {
     rm -rf "$calls" "$home"
 }
 
-test_workstation_update_plugin_is_independent() {
-    local calls home
-    calls="$(mktemp)"; home="$(mktemp -d)"
-    (
-        REAL_HOME="$home"
-        install_symlink_with_backup() { printf 'user-link %s %s\n' "$1" "$2" >>"$calls"; }
-        install_workstation_update_plugin
-    ) || return 1
-    grep -Fxq "user-link $ROOT_DIR/assets/dms-plugins/workstation-update $home/.config/DankMaterialShell/plugins/workstationUpdate" "$calls" || return 1
-    if grep -Fq docker "$calls"; then return 1; fi
-    rm -rf "$calls" "$home"
-}
-
 test_docker_orchestration_uses_focused_steps() {
     local calls
     calls="$(mktemp)"
@@ -829,16 +815,6 @@ test_docker_toggle_plugin_contract() {
     if grep -Fq '["/usr/local/bin/docker-toggle", "start"]' "$component"; then
         return 1
     fi
-}
-
-test_workstation_update_plugin_contract() {
-    local manifest="$ROOT_DIR/assets/dms-plugins/workstation-update/plugin.json"
-    local component="$ROOT_DIR/assets/dms-plugins/workstation-update/WorkstationUpdate.qml"
-    jq -e '.id == "workstationUpdate" and .type == "widget" and (.permissions == ["process"])' "$manifest" &>/dev/null
-    grep -Fq 'visibilityCommand: "/usr/local/bin/workstation-update-status"' "$component"
-    grep -Fq 'visibilityInterval: 1800' "$component"
-    grep -Fq '["xdg-terminal-exec", "workstation-update"]' "$component"
-    grep -Fq 'pillRightClickAction: () => root.checkVisibility()' "$component"
 }
 
 test_launch_or_focus_behaviors() {
@@ -1156,13 +1132,13 @@ test_commands_install_every_bin_script_and_reject_invalid_entries() {
 
 test_runtime_commands_and_workstation_modules_are_organized() {
     local command component
-    for command in docker-toggle launch-or-focus tui-launch-or-focus webapp-install webapp-launch-or-focus workstation-update workstation-update-status; do
+    for command in docker-toggle launch-or-focus tui-launch-or-focus webapp-install webapp-launch-or-focus workstation-update; do
         [[ -x "$ROOT_DIR/bin/$command" ]] || return 1
     done
-    for command in docker-toggle launch-or-focus-tui launch-or-focus-webapp workstation-update-status; do
+    for command in docker-toggle launch-or-focus-tui launch-or-focus-webapp; do
         [[ ! -e "$ROOT_DIR/assets/$command" ]] || return 1
     done
-    for component in desktop development dotfiles commands webapps maintenance docker; do
+    for component in desktop development dotfiles commands webapps docker; do
         [[ -r "$ROOT_DIR/modules/workstation/$component.sh" ]] || return 1
     done
     grep -Fq 'source_modules "$ROOT_DIR/modules/workstation"' "$ROOT_DIR/modules/2-workstation.sh" || return 1
@@ -1300,33 +1276,6 @@ test_install_pause_preserves_update_status() {
     [[ "$status" -eq 9 ]] || return 1
     grep -Fq 'Workstation update failed with status 9. Press any key to close...' "$calls" || return 1
     rm -f "$calls"
-}
-
-test_workstation_update_status_detects_remote_commits() {
-    local dir remote seed managed checker status
-    dir="$(mktemp -d)"; remote="$dir/remote.git"; seed="$dir/seed"; managed="$dir/managed"
-    checker="$ROOT_DIR/bin/workstation-update-status"
-    git init -q --bare "$remote"
-    git init -q -b main "$seed"
-    git -C "$seed" config user.name Test
-    git -C "$seed" config user.email test@example.com
-    printf 'one\n' >"$seed/state"
-    git -C "$seed" add state
-    git -C "$seed" commit -qm one
-    git -C "$seed" remote add origin "$remote"
-    git -C "$seed" push -q -u origin main
-    git clone -q --branch main "$remote" "$managed"
-    status=0
-    NIRI_SETUP_DIR="$managed" WORKSTATION_UPDATE_REPO_URL="$remote" "$checker" || status=$?
-    [[ "$status" -eq 1 ]] || return 1
-    printf 'two\n' >>"$seed/state"
-    git -C "$seed" commit -qam two
-    git -C "$seed" push -q
-    NIRI_SETUP_DIR="$managed" WORKSTATION_UPDATE_REPO_URL="$remote" "$checker" || return 1
-    status=0
-    NIRI_SETUP_DIR="$dir/missing" WORKSTATION_UPDATE_REPO_URL="$remote" "$checker" &>/dev/null || status=$?
-    [[ "$status" -eq 2 ]]
-    rm -rf "$dir"
 }
 
 test_close_window_binding_is_mod_w() {
@@ -1741,9 +1690,6 @@ run_test "Docker is installed for on-demand use" test_docker_configures_repo_ser
 run_test "Docker setup delegates to focused steps" test_docker_orchestration_uses_focused_steps
 run_test "Docker toggle changes daemon state safely" test_docker_toggle_helper_transitions
 run_test "Docker toggle DMS plugin has expected actions" test_docker_toggle_plugin_contract
-run_test "workstation update plugin is independent from Docker" test_workstation_update_plugin_is_independent
-run_test "workstation update status detects remote commits" test_workstation_update_status_detects_remote_commits
-run_test "workstation update DMS plugin has expected actions" test_workstation_update_plugin_contract
 run_test "split launch-or-focus helpers handle web apps and TUIs safely" test_launch_or_focus_behaviors
 run_test "launch-or-focus base focuses, launches, caches, and validates" test_launch_or_focus_base_contract
 run_test "web-app manifest delegates every entry to webapp-install" test_webapp_manifest_delegates_to_installer

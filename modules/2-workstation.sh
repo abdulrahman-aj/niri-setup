@@ -31,7 +31,6 @@ run_workstation_phase() {
     install_dotfiles
     install_fish_plugins
     install_mise_tools
-    install_workstation_update_plugin
     install_docker
     create_xdg_dirs
     set_graphical_target

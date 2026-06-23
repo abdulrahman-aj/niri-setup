@@ -113,16 +113,13 @@ with `sha256sum`, update the recorded checksum, and run the tests.
 ## After installation
 
 Set `eDP-1` scale to `1.67` in DMS, then reboot or re-login. In DMS Settings,
-enable the local `dockerToggle` and `workstationUpdate` plugins and place them on
-DankBar (ordering is manual), and add **Keyboard Layout Name** with its
-**Compact** option to show `EN`/`AR`.
+enable the local `dockerToggle` plugin and place it on DankBar, and add
+**Keyboard Layout Name** with its **Compact** option to show `EN`/`AR`.
 
 Verify:
 
 - [ ] Chrome opens desktop links; Alacritty is the default terminal.
 - [ ] GitHub auth, SSH fetch, and SSH push work.
-- [ ] **Workstation Update** stays hidden while current; when shown, left-click
-  opens `workstation-update` in a new terminal and right-click refreshes status.
 - [ ] Docker is inactive after reboot; the widget toggles it, right-click opens
   lazydocker without starting it, and `docker run --rm hello-world` works without
   sudo while active.
