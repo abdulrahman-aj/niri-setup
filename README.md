@@ -1,7 +1,7 @@
 # Fedora Niri workstation setup
 
 Personal automation that turns a fresh Fedora 44 Workstation into a Niri desktop
-with DankMaterialShell (DMS), Ghostty, my dotfiles, development tools, and
+with DankMaterialShell (DMS), Alacritty, my dotfiles, development tools, and
 on-demand Docker.
 
 Run as a regular user with sudo on Fedora 44 Workstation (x86_64, Intel
@@ -19,8 +19,8 @@ curl -fsSL https://raw.githubusercontent.com/abdulrahman-aj/niri-setup/main/inst
 This keeps a clean HTTPS clone at `~/.local/share/niri-setup`. To run a
 development checkout directly, use `./setup.sh`.
 
-During an interactive run: DankInstall opens a TUI when Niri, DMS, or Ghostty is
-missing (select Niri and Ghostty); GitHub CLI may open Chrome for auth; and you
+During an interactive run: DankInstall opens a TUI when Niri or DMS is
+missing (select Niri); GitHub CLI may open Chrome for auth; and you
 are offered Kickstart.nvim plus the third-party CodexBar and Wallpaper Discovery
 DMS plugins (default yes). Non-interactive runs install Kickstart and skip the
 DMS plugins. Optional failures never fail the core setup.
@@ -44,8 +44,8 @@ into `~/.dotfiles`. Before bootstrapping a fresh machine, ensure that repo:
 - Evaluates `/home/linuxbrew/.linuxbrew/bin/brew shellenv` before its first
   `brew` use in Fish.
 - Tracks `fish_plugins` but leaves `fish_variables` untracked.
-- Contains a valid `ghostty/.config/ghostty/config` (setup validates it in an
-  isolated config home before Stow runs).
+- Contains a valid `alacritty/.config/alacritty/alacritty.toml` (setup validates
+  it with `alacritty migrate --dry-run` before Stow runs).
 
 ## What it does
 
@@ -58,11 +58,12 @@ Docker to disabled. DankInstall and setup-invoked DMS commands use
   DMS preferences merged over generated settings); installs Chrome, debloats
   Firefox/LibreOffice/select GNOME extras, then full upgrade.
 - **Desktop stack:** enables the DMS and DankLinux COPRs; installs Niri, DMS,
-  Ghostty, Zed, JetBrainsMono Nerd Font, Homebrew, CLI tools, and rootful
-  Docker CE. Sets Chrome as default browser, Ghostty as XDG terminal, Fish as
-  login shell, and `graphical.target` as the default target.
+  Alacritty, Zed, JetBrainsMono Nerd Font, Homebrew, CLI tools, and rootful
+  Docker CE (and removes Ghostty if present). Sets Chrome as default browser,
+  Alacritty as XDG terminal, Fish as login shell, and `graphical.target` as the
+  default target.
 - **Dev environment:** configures Git, requires GitHub CLI SSH auth, clones or
-  validates `~/.dotfiles`, and stows `fish`, `ghostty`, `zed`.
+  validates `~/.dotfiles`, and stows `fish`, `alacritty`, `zed`.
 - **Assets and commands:** symlinks managed Niri/helper/DMS assets (backing up
   replacements as timestamped `.backup-*`), links every `bin/` script into
   `/usr/local/bin`, and installs the local `dockerToggle` DMS plugin.
@@ -78,17 +79,17 @@ with `sha256sum`, update the recorded checksum, and run the tests.
   and `steipete/tap/codexbar`. Mise installs OpenCode, Codex, and Claude Code.
   Dotfiles conflict checks and installation run via the repo's `make check` and
   `make stow`.
-- **Shell/editor config:** Fish, Ghostty, and Zed config come from dotfiles.
-  Ghostty uses Dark Modern colors (matching Zed), JetBrains Mono Nerd Font
-  Regular size 10, and a compact decoration-free window; an existing
-  DMS-generated Ghostty config is backed up once before replacement, and DMS's
-  `themes/dankcolors` is left untouched. Fish has Zoxide-backed `cd`. Fisher
+- **Shell/editor config:** Fish, Alacritty, and Zed config come from dotfiles.
+  Alacritty uses Dark Modern colors (matching Zed), JetBrains Mono Nerd Font
+  Regular size 12, and a compact decoration-free window; an existing Alacritty
+  config is backed up once before replacement, and DMS's matugen-generated
+  `dank-theme.toml` is left untouched. Fish has Zoxide-backed `cd`. Fisher
   installs plugins from `fish_plugins` (including `fzf.fish`); add more with
   `fisher install owner/repo` and commit only the `fish_plugins` manifest.
 - **Niri:** US/Arabic layout switching on `Alt+Shift`, repeat delay `200` /
-  rate `25`, DMS lock on lid close, maximized Zed/Chrome/Ghostty/TUI windows,
+  rate `25`, DMS lock on lid close, maximized Zed/Chrome/Alacritty/TUI windows,
   and full-width new columns. Subtle non-interactive chevrons at the screen
-  edges indicate additional columns. Keys: `Mod+Return` Ghostty, `Mod+W` close,
+  edges indicate additional columns. Keys: `Mod+Return`/`Mod+T` Alacritty, `Mod+W` close,
   `Mod+Tab` workspace nav, `Mod+O` Overview, hybrid window/workspace nav on
   `Mod+J/K` and `Mod+Up/Down`, Chrome on `Mod+Shift+B` (incognito
   `Mod+Shift+Alt+B`).
@@ -118,7 +119,7 @@ DankBar (ordering is manual), and add **Keyboard Layout Name** with its
 
 Verify:
 
-- [ ] Chrome opens desktop links; Ghostty is the default terminal.
+- [ ] Chrome opens desktop links; Alacritty is the default terminal.
 - [ ] GitHub auth, SSH fetch, and SSH push work.
 - [ ] **Workstation Update** stays hidden while current; when shown, left-click
   opens `workstation-update` in a new terminal and right-click refreshes status.

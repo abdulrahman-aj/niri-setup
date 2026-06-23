@@ -22,15 +22,11 @@ validate_dotfiles_fish() {
     grep -Rqs 'starship init fish' "$1/fish" || { err "Dotfiles Fish config does not activate Starship."; return 1; }
 }
 
-validate_dotfiles_ghostty() {
-    local config="$1/ghostty/.config/ghostty/config" isolated
-    [[ -f "$config" ]] || { err "Dotfiles Ghostty config was not found: ${config}"; return 1; }
-    isolated="$(mktemp -d)"
-    trap 'rm -rf "${isolated:-}"; trap - RETURN' RETURN
-    mkdir -p "$isolated/ghostty"
-    ln -s "$config" "$isolated/ghostty/config"
-    XDG_CONFIG_HOME="$isolated" ghostty_cmd +validate-config || {
-        err "Dotfiles Ghostty config is invalid: ${config}"
+validate_dotfiles_alacritty() {
+    local config="$1/alacritty/.config/alacritty/alacritty.toml"
+    [[ -f "$config" ]] || { err "Dotfiles Alacritty config was not found: ${config}"; return 1; }
+    alacritty_cmd migrate --dry-run --silent --config-file "$config" || {
+        err "Dotfiles Alacritty config is invalid: ${config}"
         return 1
     }
 }
@@ -70,9 +66,9 @@ prepare_fish_config_directory() {
     fi
 }
 
-prepare_ghostty_config() {
-    local dotdir=$1 destination="$REAL_HOME/.config/ghostty/config" expected
-    expected="$dotdir/ghostty/.config/ghostty/config"
+prepare_alacritty_config() {
+    local dotdir=$1 destination="$REAL_HOME/.config/alacritty/alacritty.toml" expected
+    expected="$dotdir/alacritty/.config/alacritty/alacritty.toml"
     if [[ -L "$destination" && "$(readlink -f "$destination")" == "$(readlink -f "$expected")" ]]; then
         return 0
     fi
@@ -87,16 +83,16 @@ install_dotfiles() {
     [[ -d "$dotdir" ]] || gh_cmd repo clone abdulrahman-aj/dotfiles "$dotdir"
     validate_existing_dotfiles
     validate_dotfiles_fish "$dotdir"
-    validate_dotfiles_ghostty "$dotdir"
+    validate_dotfiles_alacritty "$dotdir"
     validate_dotfiles_makefile "$dotdir"
     prepare_fish_config_directory "$dotdir"
     make_cmd -C "$dotdir" check TARGET="$REAL_HOME" PKGS='fish zed' || {
         err "Stow detected conflicts; no dotfiles were changed."
         return 1
     }
-    prepare_ghostty_config "$dotdir"
+    prepare_alacritty_config "$dotdir"
     make_cmd -C "$dotdir" check TARGET="$REAL_HOME" || {
-        err "Stow detected conflicts; the Ghostty backup was preserved, but no dotfiles were stowed."
+        err "Stow detected conflicts; the Alacritty backup was preserved, but no dotfiles were stowed."
         return 1
     }
     make_cmd -C "$dotdir" stow TARGET="$REAL_HOME"

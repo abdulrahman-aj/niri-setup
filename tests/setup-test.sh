@@ -38,7 +38,7 @@ test_banner_has_no_log_prefix() {
 test_main_uses_banner_helper() {
     local definition
     definition="$(declare -f main)"
-    grep -Fq 'banner "Fedora 44 → Niri + DankMaterialShell + Ghostty"' <<<"$definition"
+    grep -Fq 'banner "Fedora 44 → Niri + DankMaterialShell + Alacritty"' <<<"$definition"
     ! grep -Fq "printf '%b" <<<"$definition"
 }
 
@@ -139,7 +139,7 @@ test_dnf_settings_are_replaced_once() {
 }
 
 test_core_stack_requires_every_command() {
-    ( have_command() { [[ "$1" != ghostty ]]; }; ! core_stack_complete )
+    ( have_command() { [[ "$1" != niri ]]; }; ! core_stack_complete )
 }
 
 test_checksum_validation() {
@@ -307,7 +307,7 @@ test_stow_conflict_stops_dotfile_install() {
         REAL_USER=tester
         validate_existing_dotfiles() { :; }
         validate_dotfiles_fish() { :; }
-        validate_dotfiles_ghostty() { :; }
+        validate_dotfiles_alacritty() { :; }
         validate_dotfiles_makefile() { :; }
         make_cmd() { return 1; }
         install_dotfiles
@@ -317,23 +317,22 @@ test_stow_conflict_stops_dotfile_install() {
     [[ $status -ne 0 ]]
 }
 
-test_ghostty_dotfiles_are_required_and_parsed() {
+test_alacritty_dotfiles_are_required_and_parsed() {
     local dotdir config observed
     dotdir="$(mktemp -d)"
-    config="$dotdir/ghostty/.config/ghostty/config"
-    if validate_dotfiles_ghostty "$dotdir" &>/dev/null; then return 1; fi
+    config="$dotdir/alacritty/.config/alacritty/alacritty.toml"
+    if validate_dotfiles_alacritty "$dotdir" &>/dev/null; then return 1; fi
     mkdir -p "$(dirname "$config")"
-    printf 'font-size = invalid\n' >"$config"
-    if ( ghostty_cmd() { return 1; }; validate_dotfiles_ghostty "$dotdir" ) &>/dev/null; then return 1; fi
+    printf 'not = valid = toml\n' >"$config"
+    if ( alacritty_cmd() { return 1; }; validate_dotfiles_alacritty "$dotdir" ) &>/dev/null; then return 1; fi
     observed="$(mktemp)"
     (
-        ghostty_cmd() {
-            [[ "$1" == +validate-config ]]
-            [[ -n "${XDG_CONFIG_HOME:-}" && "$XDG_CONFIG_HOME" != "$HOME/.config" ]]
-            [[ "$(readlink -f "$XDG_CONFIG_HOME/ghostty/config")" == "$config" ]]
+        alacritty_cmd() {
+            [[ "$1 $2 $3 $4" == 'migrate --dry-run --silent --config-file' ]]
+            [[ "$5" == "$config" ]]
             printf parsed >"$observed"
         }
-        validate_dotfiles_ghostty "$dotdir"
+        validate_dotfiles_alacritty "$dotdir"
     ) || return 1
     [[ "$(cat "$observed")" == parsed ]]
     rm -rf "$dotdir" "$observed"
@@ -352,42 +351,42 @@ test_dotfiles_makefile_targets_are_required() {
     rm -rf "$home"
 }
 
-test_ghostty_config_migration_is_backed_up_and_rerunnable() {
+test_alacritty_config_migration_is_backed_up_and_rerunnable() {
     local home dotdir destination backup
     home="$(mktemp -d)"
     dotdir="$home/.dotfiles"
-    destination="$home/.config/ghostty/config"
-    mkdir -p "$dotdir/fish" "$dotdir/zed" "$(dirname "$dotdir/ghostty/.config/ghostty/config")" \
-        "$home/.config/ghostty/themes"
+    destination="$home/.config/alacritty/alacritty.toml"
+    mkdir -p "$dotdir/fish" "$dotdir/zed" "$(dirname "$dotdir/alacritty/.config/alacritty/alacritty.toml")" \
+        "$home/.config/alacritty"
     printf '%s\n' \
         '.PHONY: check stow' \
-        'PKGS := fish ghostty zed' \
+        'PKGS := fish alacritty zed' \
         'TARGET ?= $(HOME)' \
         'check:' \
         $'\tstow --simulate -t "$(TARGET)" $(PKGS)' \
         'stow:' \
         $'\tstow -t "$(TARGET)" $(PKGS)' \
         >"$dotdir/Makefile"
-    printf 'theme = Dark Modern\n' >"$dotdir/ghostty/.config/ghostty/config"
-    printf 'theme = dankcolors\n' >"$destination"
-    printf 'generated theme\n' >"$home/.config/ghostty/themes/dankcolors"
+    printf 'font.size = 12\n' >"$dotdir/alacritty/.config/alacritty/alacritty.toml"
+    printf 'font.size = 99\n' >"$destination"
+    printf 'generated theme\n' >"$home/.config/alacritty/dank-theme.toml"
     (
         REAL_HOME="$home"
         REAL_USER=tester
         validate_existing_dotfiles() { :; }
         validate_dotfiles_fish() { :; }
-        validate_dotfiles_ghostty() { :; }
+        validate_dotfiles_alacritty() { :; }
         make_cmd() { make "$@"; }
         getent() { printf 'tester:x:1000:1000::%s:/usr/bin/fish\n' "$home"; }
         install_dotfiles
         install_dotfiles
     ) &>/dev/null || return 1
     [[ -L "$destination" ]] || return 1
-    [[ "$(readlink -f "$destination")" == "$dotdir/ghostty/.config/ghostty/config" ]] || return 1
-    backup="$(find "$home/.config/ghostty" -maxdepth 1 -name 'config.backup-*' -print)"
+    [[ "$(readlink -f "$destination")" == "$dotdir/alacritty/.config/alacritty/alacritty.toml" ]] || return 1
+    backup="$(find "$home/.config/alacritty" -maxdepth 1 -name 'alacritty.toml.backup-*' -print)"
     [[ -n "$backup" && "$(wc -l <<<"$backup")" -eq 1 ]] || return 1
-    grep -Fxq 'theme = dankcolors' "$backup" || return 1
-    grep -Fxq 'generated theme' "$home/.config/ghostty/themes/dankcolors"
+    grep -Fxq 'font.size = 99' "$backup" || return 1
+    grep -Fxq 'generated theme' "$home/.config/alacritty/dank-theme.toml"
     rm -rf "$home"
 }
 
@@ -556,6 +555,7 @@ test_workstation_dependency_order() {
         install_zed() { printf '%s\n' zed >>"$calls"; }
         install_nerd_font() { printf '%s\n' font >>"$calls"; }
         configure_xdg_terminal() { printf '%s\n' terminal >>"$calls"; }
+        remove_ghostty() { printf '%s\n' remove-ghostty >>"$calls"; }
         configure_niri() { printf '%s\n' niri >>"$calls"; }
         install_niri_edge_indicators() { printf '%s\n' indicators >>"$calls"; }
         configure_git() { printf '%s\n' git >>"$calls"; }
@@ -569,7 +569,7 @@ test_workstation_dependency_order() {
         set_graphical_target() { printf '%s\n' target >>"$calls"; }
         run_workstation_phase
     )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal niri indicators git github dotfiles fish-plugins mise maintenance docker dirs target ' ]]
+    [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal remove-ghostty niri indicators git github dotfiles fish-plugins mise maintenance docker dirs target ' ]]
     rm -f "$calls"
 }
 
@@ -1333,7 +1333,7 @@ test_workstation_update_status_detects_remote_commits() {
 test_close_window_binding_is_mod_w() {
     local override="$ROOT_DIR/assets/niri-overrides.kdl"
     local indicator="$ROOT_DIR/assets/niri-edge-indicators/shell.qml"
-    grep -Fq 'match app-id=r#"^(dev\.zed\.Zed|com\.mitchellh\.ghostty|local\.tui\..*)$"#' "$override"
+    grep -Fq 'match app-id=r#"^(dev\.zed\.Zed|Alacritty|local\.tui\..*)$"#' "$override"
     grep -Fq 'match app-id=r#"^(google-chrome|com.google.Chrome|niri-webapp-.*|chrome-.*-Default)$"#' "$override"
     [[ "$(grep -c 'open-maximized true' "$override")" -eq 2 ]]
     grep -Fq 'default-column-width { proportion 1.0; }' "$override"
@@ -1444,7 +1444,7 @@ test_dotfile_install_does_not_edit_checkout() {
     home="$(mktemp -d)"
     calls="$(mktemp)"
     config="$home/.dotfiles/fish/.config/fish/config.fish"
-    mkdir -p "$(dirname "$config")" "$home/.dotfiles/ghostty/.config/ghostty" "$home/.dotfiles/zed"
+    mkdir -p "$(dirname "$config")" "$home/.dotfiles/alacritty/.config/alacritty" "$home/.dotfiles/zed"
     printf 'jorgebucaran/fisher\nPatrickF1/fzf.fish\n' >"$(dirname "$config")/fish_plugins"
     printf '%s\n' \
         'eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)' \
@@ -1456,7 +1456,7 @@ test_dotfile_install_does_not_edit_checkout() {
         REAL_HOME="$home"
         REAL_USER=tester
         validate_existing_dotfiles() { :; }
-        validate_dotfiles_ghostty() { :; }
+        validate_dotfiles_alacritty() { :; }
         validate_dotfiles_makefile() { :; }
         make_cmd() { return 0; }
         getent() { printf 'tester:x:1000:1000::%s:/bin/bash\n' "$home"; }
@@ -1530,15 +1530,15 @@ test_niri_success_does_not_touch_outputs() {
     rm -rf "$home"
 }
 
-test_xdg_terminal_selects_ghostty() {
+test_xdg_terminal_selects_alacritty() {
     local home
     home="$(mktemp -d)"
     (
         REAL_HOME="$home"
-        xdg-terminal-exec() { [[ "$1" == --print-id ]] && printf 'com.mitchellh.ghostty.desktop\n'; }
+        xdg-terminal-exec() { [[ "$1" == --print-id ]] && printf 'Alacritty.desktop\n'; }
         configure_xdg_terminal
     )
-    grep -Fxq com.mitchellh.ghostty.desktop "$home/.config/xdg-terminals.list"
+    grep -Fxq Alacritty.desktop "$home/.config/xdg-terminals.list"
     rm -rf "$home"
 }
 
@@ -1714,9 +1714,9 @@ run_test "DMS settings override merges safely and idempotently" test_dms_setting
 run_test "invalid DMS JSON preserves existing settings" test_invalid_dms_json_preserves_settings
 run_test "unexpected dotfiles remote is rejected" test_unexpected_dotfiles_remote_rejected
 run_test "Stow conflicts stop dotfile installation" test_stow_conflict_stops_dotfile_install
-run_test "Ghostty dotfiles are required and parsed in isolation" test_ghostty_dotfiles_are_required_and_parsed
+run_test "Alacritty dotfiles are required and parsed" test_alacritty_dotfiles_are_required_and_parsed
 run_test "dotfiles Makefile check and stow targets are required" test_dotfiles_makefile_targets_are_required
-run_test "Ghostty config migration is backed up and rerunnable" test_ghostty_config_migration_is_backed_up_and_rerunnable
+run_test "Alacritty config migration is backed up and rerunnable" test_alacritty_config_migration_is_backed_up_and_rerunnable
 run_test "required package failures are returned" test_required_failure_is_returned
 run_test "modules are discovered in lexical order" test_modules_are_discovered_in_lexical_order
 run_test "missing modules are fatal" test_missing_module_is_fatal
@@ -1772,7 +1772,7 @@ run_test "installed Nerd Font skips downloading" test_installed_nerd_font_skips_
 run_test "Niri override include is last and idempotent" test_niri_include_is_last_and_idempotent
 run_test "failed Niri validation restores managed files" test_niri_validation_failure_rolls_back
 run_test "successful Niri configuration leaves outputs untouched" test_niri_success_does_not_touch_outputs
-run_test "Ghostty is selected through xdg-terminal-exec" test_xdg_terminal_selects_ghostty
+run_test "Alacritty is selected through xdg-terminal-exec" test_xdg_terminal_selects_alacritty
 run_test "non-TTY setup installs Kickstart and skips DMS plugins" test_non_tty_installs_kickstart_and_skips_plugins
 run_test "Kickstart dependencies are split between Fedora and Homebrew" test_kickstart_dependencies_are_split_and_exposed
 run_test "optional prompts default to yes" test_default_yes_prompt_semantics

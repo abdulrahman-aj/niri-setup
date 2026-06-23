@@ -13,7 +13,7 @@ gh_cmd() { "$(brew_bin_dir)/gh" "$@"; }
 mise_cmd() { "$(brew_bin_dir)/mise" "$@"; }
 jq_cmd() { "$(brew_bin_dir)/jq" "$@"; }
 make_cmd() { PATH="$(brew_bin_dir):$PATH" make "$@"; }
-ghostty_cmd() { ghostty "$@"; }
+alacritty_cmd() { alacritty "$@"; }
 system_fish_cmd() { /usr/bin/fish "$@"; }
 
 install_homebrew() {

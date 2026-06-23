@@ -29,7 +29,7 @@ switch-events {
 }
 
 window-rule {
-    match app-id=r#"^(dev\.zed\.Zed|com\.mitchellh\.ghostty|local\.tui\..*)$"#
+    match app-id=r#"^(dev\.zed\.Zed|Alacritty|local\.tui\..*)$"#
     open-maximized true
 }
 
@@ -53,7 +53,8 @@ binds {
     Mod+Shift+Up { move-window-up-or-to-workspace-up; }
     Mod+Shift+J { move-window-down-or-to-workspace-down; }
     Mod+Shift+K { move-window-up-or-to-workspace-up; }
-    Mod+Return repeat=false hotkey-overlay-title="Open Terminal" { spawn "ghostty"; }
+    Mod+Return repeat=false hotkey-overlay-title="Open Terminal" { spawn "alacritty"; }
+    Mod+T repeat=false hotkey-overlay-title="Open Terminal" { spawn "alacritty"; }
     Mod+Shift+B repeat=false hotkey-overlay-title="Open Browser" { spawn "google-chrome"; }
     Mod+Shift+Alt+B repeat=false hotkey-overlay-title="Open Browser Incognito" { spawn "google-chrome" "--incognito"; }
     Mod+Shift+N repeat=false hotkey-overlay-title="Notion" { spawn "webapp-launch-or-focus" "notion" "https://www.notion.so"; }

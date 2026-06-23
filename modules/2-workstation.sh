@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034 # Constants are consumed by sourced workstation components.
 
 readonly CORE_PACKAGES=(
-    xwayland-satellite libva-intel-driver intel-media-driver
+    xwayland-satellite libva-intel-driver intel-media-driver alacritty
     xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish make
 )
 readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli steipete/tap/codexbar)
@@ -24,6 +24,7 @@ run_workstation_phase() {
     install_zed
     install_nerd_font
     configure_xdg_terminal
+    remove_ghostty
     configure_niri
     install_niri_edge_indicators
     configure_git

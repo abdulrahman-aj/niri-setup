@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Personal Fedora 44 workstation bootstrap: Niri + DMS + Ghostty.
+# Personal Fedora 44 workstation bootstrap: Niri + DMS + Alacritty.
 # shellcheck disable=SC2034 # Constants and state are consumed by sourced modules.
 
 set -euo pipefail
@@ -54,7 +54,7 @@ source_required "$ROOT_DIR/lib/common.sh"
 source_modules "$ROOT_DIR/modules" || exit 1
 
 main() {
-    banner "Fedora 44 → Niri + DankMaterialShell + Ghostty"
+    banner "Fedora 44 → Niri + DankMaterialShell + Alacritty"
 
     preflight
     run_system_phase

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-core_stack_complete() { have_command dms && have_command niri && have_command ghostty; }
+core_stack_complete() { have_command dms && have_command niri; }
 dms_cmd() { DMS_PRIVESC=sudo dms "$@"; }
 
 run_dankinstall() {
     local tempdir archive installer
-    core_stack_complete && { log "DMS, Niri, and Ghostty are already installed"; return 0; }
+    core_stack_complete && { log "DMS and Niri are already installed"; return 0; }
     tempdir="$(mktemp -d)"
     archive="$tempdir/dankinstall.gz"
     installer="$tempdir/dankinstall"
@@ -13,7 +13,7 @@ run_dankinstall() {
     download_and_verify "$DANKINSTALL_URL" "$DANKINSTALL_SHA256" "$archive" || return 1
     gzip -dc "$archive" >"$installer"
     chmod +x "$installer"
-    info "DankInstall is interactive; select Niri and Ghostty in the TUI."
+    info "DankInstall is interactive; select Niri in the TUI."
     DMS_PRIVESC=sudo "$installer"
     core_stack_complete || {
         err "DankInstall finished without the complete desktop stack."
@@ -107,13 +107,21 @@ install_nerd_font() {
 configure_xdg_terminal() {
     local file="$REAL_HOME/.config/xdg-terminals.list" temp
     temp="$(mktemp)"
-    printf '%s\n' com.mitchellh.ghostty.desktop >"$temp"
+    printf '%s\n' Alacritty.desktop >"$temp"
     install_file_with_backup "$temp" "$file"
     rm -f "$temp"
-    [[ "$(xdg-terminal-exec --print-id)" == com.mitchellh.ghostty.desktop ]] || {
-        err "Ghostty is not selected by xdg-terminal-exec."
+    [[ "$(xdg-terminal-exec --print-id)" == Alacritty.desktop ]] || {
+        err "Alacritty is not selected by xdg-terminal-exec."
         return 1
     }
+}
+
+remove_ghostty() {
+    if rpm -q ghostty &>/dev/null; then
+        s dnf remove -y ghostty
+        log "Ghostty removed"
+    fi
+    rm -rf "$REAL_HOME/.config/ghostty"
 }
 
 user_systemctl_cmd() { systemctl --user "$@"; }
