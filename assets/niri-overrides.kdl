@@ -44,11 +44,6 @@ window-rule {
     open-floating false
 }
 
-window-rule {
-    match is-active=false
-    opacity 0.90
-}
-
 binds {
     Mod+Q hotkey-overlay-title=null { spawn "true"; }
     Mod+D hotkey-overlay-title=null { spawn "true"; }
