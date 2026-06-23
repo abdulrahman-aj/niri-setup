@@ -132,8 +132,6 @@ ShellRoot {
                 left: 6
             }
 
-            mask: Region { item: pill }
-
             Rectangle {
                 id: pill
                 anchors.fill: parent
@@ -193,8 +191,6 @@ ShellRoot {
                 top: Math.max(0, Math.round((modelData.height - implicitHeight) / 2))
                 right: 6
             }
-
-            mask: Region { item: pill }
 
             Rectangle {
                 id: pill
