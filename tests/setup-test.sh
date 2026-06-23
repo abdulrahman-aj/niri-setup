@@ -1302,7 +1302,9 @@ test_close_window_binding_is_mod_w() {
     grep -Fq 'top-left' "$override"
     grep -Fq 'focusedColumn > 1' "$indicator"
     grep -Fq 'focusedColumn < maximumColumn' "$indicator"
-    grep -Fq 'mask: Region {}' "$indicator"
+    grep -Fq 'mask: Region { item: pill }' "$indicator"
+    grep -Fq 'focus-column-left' "$indicator"
+    grep -Fq 'focus-column-right' "$indicator"
     if grep -Fq 'open-fullscreen true' "$override"; then return 1; fi
     grep -Fq 'Mod+W repeat=false hotkey-overlay-title="Close Window" { close-window; }' "$override"
     grep -Fq 'Mod+Q hotkey-overlay-title=null { spawn "true"; }' "$override"

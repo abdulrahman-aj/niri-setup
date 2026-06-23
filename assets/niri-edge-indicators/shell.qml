@@ -132,19 +132,37 @@ ShellRoot {
                 left: 6
             }
 
-            mask: Region {}
+            mask: Region { item: pill }
 
             Rectangle {
+                id: pill
                 anchors.fill: parent
                 radius: width / 2
                 color: "#66000000"
 
-                Text {
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Quickshell.execDetached(["niri", "msg", "action", "focus-column-left"])
+                }
+
+                Canvas {
                     anchors.centerIn: parent
-                    text: "‹"
-                    color: "#CCFFFFFF"
-                    font.pixelSize: 30
-                    font.weight: Font.Medium
+                    width: 11
+                    height: 20
+                    onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.reset()
+                        ctx.strokeStyle = "#CCFFFFFF"
+                        ctx.lineWidth = 3
+                        ctx.lineCap = "round"
+                        ctx.lineJoin = "round"
+                        ctx.beginPath()
+                        ctx.moveTo(width - 1, 1)
+                        ctx.lineTo(2, height / 2)
+                        ctx.lineTo(width - 1, height - 1)
+                        ctx.stroke()
+                    }
                 }
             }
         }
@@ -176,19 +194,37 @@ ShellRoot {
                 right: 6
             }
 
-            mask: Region {}
+            mask: Region { item: pill }
 
             Rectangle {
+                id: pill
                 anchors.fill: parent
                 radius: width / 2
                 color: "#66000000"
 
-                Text {
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Quickshell.execDetached(["niri", "msg", "action", "focus-column-right"])
+                }
+
+                Canvas {
                     anchors.centerIn: parent
-                    text: "›"
-                    color: "#CCFFFFFF"
-                    font.pixelSize: 30
-                    font.weight: Font.Medium
+                    width: 11
+                    height: 20
+                    onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.reset()
+                        ctx.strokeStyle = "#CCFFFFFF"
+                        ctx.lineWidth = 3
+                        ctx.lineCap = "round"
+                        ctx.lineJoin = "round"
+                        ctx.beginPath()
+                        ctx.moveTo(2, 1)
+                        ctx.lineTo(width - 1, height / 2)
+                        ctx.lineTo(2, height - 1)
+                        ctx.stroke()
+                    }
                 }
             }
         }
