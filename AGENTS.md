@@ -20,22 +20,21 @@ Idempotent installer targeting Fedora 44 / x86_64 / Intel graphics. Designed to 
 | `lib/git-remote.sh` | Remote-validation helpers used by `workstation-update` |
 | `bin/` | Installed helper scripts: `launch-or-focus`, `webapp-*`, `docker-toggle`, `workstation-update`, `tui-launch-or-focus` |
 | `assets/` | Static config: `niri-overrides.kdl`, `dms-settings-override.json`, `niri-edge-indicators/`, `dms-plugins/`, `webapps.json` |
-| `tests/setup-test.sh` | TAP-style unit tests (source `setup.sh`, run pure-bash assertions) |
+| `tests/lib.sh` | Shared test framework: `run_test`, `make_tempdir/file`, `assert_*` helpers |
+| `tests/test-*.sh` | TAP-style unit tests split by domain: setup, system, desktop, dotfiles, development, commands, optional |
 
 ## Commands
 
 ```bash
+# Run tests
+make
+
 # Run the full installer from a local checkout
 ./setup.sh
-
-# Run tests (no sudo needed — pure bash unit tests)
-bash tests/setup-test.sh
 
 # Update from managed clone
 workstation-update
 ```
-
-No Makefile exists; the above are the canonical entry points.
 
 ## Architecture decisions
 
