@@ -38,8 +38,8 @@ validate_dotfiles_makefile() {
         err "Dotfiles Makefile does not provide a valid check target."
         return 1
     }
-    make_cmd -n -C "$dotdir" stow TARGET="$REAL_HOME" &>/dev/null || {
-        err "Dotfiles Makefile does not provide a valid stow target."
+    make_cmd -n -C "$dotdir" TARGET="$REAL_HOME" &>/dev/null || {
+        err "Dotfiles Makefile does not provide a valid default target."
         return 1
     }
 }
@@ -95,7 +95,7 @@ install_dotfiles() {
         err "Stow detected conflicts; the Alacritty backup was preserved, but no dotfiles were stowed."
         return 1
     }
-    make_cmd -C "$dotdir" stow TARGET="$REAL_HOME"
+    make_cmd -C "$dotdir" TARGET="$REAL_HOME"
     [[ "$(getent passwd "$REAL_USER" | cut -d: -f7)" == /usr/bin/fish ]] || s chsh -s /usr/bin/fish "$REAL_USER"
 }
 

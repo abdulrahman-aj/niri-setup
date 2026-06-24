@@ -358,9 +358,7 @@ test_dotfiles_makefile_targets_are_required() {
     dotdir="$home/.dotfiles"
     mkdir -p "$dotdir"
     if ( REAL_HOME="$home"; validate_dotfiles_makefile "$dotdir" ) &>/dev/null; then return 1; fi
-    printf 'check:\n\t@:\n' >"$dotdir/Makefile"
-    if ( REAL_HOME="$home"; validate_dotfiles_makefile "$dotdir" ) &>/dev/null; then return 1; fi
-    printf 'check:\n\t@: \nstow:\n\t@:\n' >"$dotdir/Makefile"
+    printf 'all:\n\t@:\ncheck:\n\t@:\n' >"$dotdir/Makefile"
     ( REAL_HOME="$home"; make_cmd() { make "$@"; }; validate_dotfiles_makefile "$dotdir" ) || return 1
 }
 
@@ -372,13 +370,13 @@ test_alacritty_config_migration_is_backed_up_and_rerunnable() {
     mkdir -p "$dotdir/fish" "$dotdir/zed" "$(dirname "$dotdir/alacritty/.config/alacritty/alacritty.toml")" \
         "$home/.config/alacritty"
     printf '%s\n' \
-        '.PHONY: check stow' \
+        '.PHONY: all check' \
         'PKGS := fish alacritty zed' \
         'TARGET ?= $(HOME)' \
+        'all:' \
+        $'\tstow -t "$(TARGET)" $(PKGS)' \
         'check:' \
         $'\tstow --simulate -t "$(TARGET)" $(PKGS)' \
-        'stow:' \
-        $'\tstow -t "$(TARGET)" $(PKGS)' \
         >"$dotdir/Makefile"
     printf 'font.size = 12\n' >"$dotdir/alacritty/.config/alacritty/alacritty.toml"
     printf 'font.size = 99\n' >"$destination"
