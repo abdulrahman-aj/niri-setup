@@ -8,7 +8,6 @@ ShellRoot {
 
     property var workspaces: []
     property var windows: []
-    property bool overviewOpen: false
 
     function replaceWindow(window) {
         const index = windows.findIndex(candidate => candidate.id === window.id)
@@ -59,8 +58,6 @@ ShellRoot {
             for (const change of changes)
                 layouts[change[0]] = change[1]
             windows = windows.map(window => layouts[window.id] ? Object.assign({}, window, { layout: layouts[window.id] }) : window)
-        } else if (event.OverviewOpenedOrClosed) {
-            overviewOpen = event.OverviewOpenedOrClosed.is_open
         }
     }
 
@@ -113,7 +110,7 @@ ShellRoot {
             required property var modelData
 
             screen: modelData
-            visible: !root.overviewOpen && root.hasColumn(modelData.name, -1)
+            visible: root.hasColumn(modelData.name, -1)
             color: "transparent"
             implicitWidth: 26
             implicitHeight: 52
@@ -179,7 +176,7 @@ ShellRoot {
             required property var modelData
 
             screen: modelData
-            visible: !root.overviewOpen && root.hasColumn(modelData.name, 1)
+            visible: root.hasColumn(modelData.name, 1)
             color: "transparent"
             implicitWidth: 26
             implicitHeight: 52
