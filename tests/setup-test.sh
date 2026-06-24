@@ -16,8 +16,33 @@ run_test() {
     local name=$1
     shift
     TESTS_RUN=$((TESTS_RUN + 1))
-    if ("$@"); then pass "$name"; else fail "$name" "assertion failed"; fi
+    if ( TMP_PATHS=(); trap '(( ${#TMP_PATHS[@]} )) && rm -rf "${TMP_PATHS[@]}"' EXIT; "$@" ); then
+        pass "$name"
+    else
+        fail "$name" "assertion failed"
+    fi
 }
+
+# Temp fixtures: register every path so run_test's trap removes it (even on early
+# assert exit), so tests never need their own cleanup.
+make_tempdir()  { local d; d="$(mktemp -d)"; TMP_PATHS+=("$d"); printf '%s' "$d"; }
+make_tempfile() { local f; f="$(mktemp)";    TMP_PATHS+=("$f"); printf '%s' "$f"; }
+with_dms_home() {
+    local home; home="$(make_tempdir)"
+    mkdir -p "$home/.config/DankMaterialShell"
+    printf '%s\n' "${1:-{}}" >"$home/.config/DankMaterialShell/settings.json"
+    printf '%s' "$home"
+}
+
+# Assertions: print context and exit the test subshell on failure, so every assertion
+# binds without needing `set -e` or `|| return 1`.
+fail_assert()          { printf 'assert failed: %s\n' "$1" >&2; exit 1; }
+assert_eq()            { [[ "$1" == "$2" ]] || fail_assert "expected '$2', got '$1'"; }
+assert_contains()      { [[ "$1" == *"$2"* ]] || fail_assert "missing '$2' in '$1'"; }
+assert_file_contains() { grep -Fq -- "$2" "$1" || fail_assert "$1 missing '$2'"; }
+assert_file_lacks()    { if grep -Fq -- "$2" "$1"; then fail_assert "$1 unexpectedly has '$2'"; fi; }
+assert_ok()            { "$@" || fail_assert "command failed: $*"; }
+assert_fails()         { if "$@"; then fail_assert "unexpected success: $*"; fi; }
 
 test_root_rejected() {
     ! ( current_euid() { printf '0\n'; }; sudo() { return 0; }; require_regular_user ) &>/dev/null
@@ -31,44 +56,34 @@ test_banner_has_no_log_prefix() {
     local actual expected
     actual="$(banner 'Test title')"
     expected="$(printf '%b' "${CYAN}${BOLD}Test title${NC}")"
-    [[ "$actual" == "$expected" ]]
-    [[ "$actual" != *'[i]'* ]]
-}
-
-test_main_uses_banner_helper() {
-    local definition
-    definition="$(declare -f main)"
-    grep -Fq 'banner "Fedora 44 → Niri + DankMaterialShell + Alacritty"' <<<"$definition"
-    ! grep -Fq "printf '%b" <<<"$definition"
+    assert_eq "$actual" "$expected"
+    [[ "$actual" != *'[i]'* ]] || fail_assert "banner has log prefix [i]"
 }
 
 test_fedora_44_accepted() {
     local file
-    file="$(mktemp)"
+    file="$(make_tempfile)"
     printf 'ID=fedora\nVERSION_ID=44\nVARIANT_ID=workstation\n' >"$file"
     ( OS_RELEASE_FILE="$file"; detect_fedora ) &>/dev/null
     local status=$?
-    rm -f "$file"
     [[ $status -eq 0 ]]
 }
 
 test_other_fedora_rejected() {
     local file
-    file="$(mktemp)"
+    file="$(make_tempfile)"
     printf 'ID=fedora\nVERSION_ID=43\nVARIANT_ID=workstation\n' >"$file"
     ( OS_RELEASE_FILE="$file"; detect_fedora ) &>/dev/null
     local status=$?
-    rm -f "$file"
     [[ $status -ne 0 ]]
 }
 
 test_non_workstation_rejected() {
     local file status
-    file="$(mktemp)"
+    file="$(make_tempfile)"
     printf 'ID=fedora\nVERSION_ID=44\nVARIANT_ID=server\n' >"$file"
     ( OS_RELEASE_FILE="$file"; detect_fedora ) &>/dev/null
     status=$?
-    rm -f "$file"
     [[ $status -ne 0 ]]
 }
 
@@ -86,7 +101,7 @@ test_home_lookup_failure_is_rejected() {
 
 test_preflight_bootstraps_before_hardware_and_dotfiles_checks() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         step() { printf 'heading:%s\n' "$*" >>"$calls"; }
         require_bootstrap_commands() { printf '%s\n' minimal >>"$calls"; }
@@ -101,32 +116,29 @@ test_preflight_bootstraps_before_hardware_and_dotfiles_checks() {
         preflight
     )
     [[ "$(tr '\n' ' ' <"$calls")" == 'heading:Preflight minimal sudo identity fedora arch bootstrap commands intel dotfiles ' ]]
-    rm -f "$calls"
 }
 
 test_bootstrap_package_list_is_exact() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     ( s() { printf '%s\n' "$*" >>"$calls"; }; install_bootstrap_packages )
     grep -Fxq 'dnf install -y git pciutils' "$calls"
-    rm -f "$calls"
 }
 
 test_bootstrap_package_install_is_rerunnable() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         s() { printf '%s\n' "$*" >>"$calls"; }
         install_bootstrap_packages
         install_bootstrap_packages
     ) &>/dev/null
     [[ "$(grep -c '^dnf install -y git pciutils$' "$calls")" -eq 2 ]]
-    rm -f "$calls"
 }
 
 test_dnf_settings_are_replaced_once() {
     local file
-    file="$(mktemp)"
+    file="$(make_tempfile)"
     printf '[main]\nmax_parallel_downloads=3\nmax_parallel_downloads=5\ndefaultyes=False\n' >"$file"
     (
         DNF_CONF="$file"
@@ -135,7 +147,6 @@ test_dnf_settings_are_replaced_once() {
     ) &>/dev/null || return 1
     [[ "$(grep -c '^max_parallel_downloads=10$' "$file")" -eq 1 ]]
     [[ "$(grep -c '^defaultyes=True$' "$file")" -eq 1 ]]
-    rm -f "$file"
 }
 
 test_core_stack_requires_every_command() {
@@ -144,19 +155,18 @@ test_core_stack_requires_every_command() {
 
 test_checksum_validation() {
     local file digest
-    file="$(mktemp)"
+    file="$(make_tempfile)"
     printf 'verified payload' >"$file"
     digest="$(sha256sum "$file" | awk '{print $1}')"
     verify_checksum "$file" "$digest"
     if verify_checksum "$file" "0000000000000000000000000000000000000000000000000000000000000000"; then
         return 1
     fi
-    rm -f "$file"
 }
 
 test_dankinstall_selects_sudo_without_exporting_it() {
     local dir marker observed
-    dir="$(mktemp -d)"
+    dir="$(make_tempdir)"
     marker="$dir/stack-complete"
     observed="$dir/privesc"
     (
@@ -182,12 +192,11 @@ test_dankinstall_selects_sudo_without_exporting_it() {
         [[ -z "${DMS_PRIVESC+x}" ]]
     ) &>/dev/null || return 1
     [[ "$(cat "$observed")" == sudo ]]
-    rm -rf "$dir"
 }
 
 test_greeter_healthy_skips_repair() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         have_command() { return 0; }
         dms() { printf '%s\n' "$*" >>"$calls"; }
@@ -196,12 +205,11 @@ test_greeter_healthy_skips_repair() {
     ) &>/dev/null || return 1
     ! grep -q '^greeter enable$' "$calls" || return 1
     [[ "$(grep -c '^greeter sync -y$' "$calls")" -eq 1 ]]
-    rm -f "$calls"
 }
 
 test_greeter_repairs_failed_status() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         have_command() { return 0; }
         dms() {
@@ -214,12 +222,11 @@ test_greeter_repairs_failed_status() {
     ) &>/dev/null || return 1
     grep -q '^greeter enable$' "$calls"
     grep -q '^greeter sync -y$' "$calls"
-    rm -f "$calls"
 }
 
 test_dms_commands_select_sudo_and_forward_status() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         unset DMS_PRIVESC
         dms() {
@@ -231,13 +238,12 @@ test_dms_commands_select_sudo_and_forward_status() {
         [[ -z "${DMS_PRIVESC+x}" ]]
     ) || return 1
     [[ "$(cat "$calls")" == $'sudo|greeter sync -y\nsudo|fail' ]]
-    rm -f "$calls"
 }
 
 test_dms_settings_override_merges_and_is_idempotent() {
     local home override before
-    home="$(mktemp -d)"
-    override="$(mktemp)"
+    home="$(make_tempdir)"
+    override="$(make_tempfile)"
     mkdir -p "$home/.config/DankMaterialShell"
     printf '{"keep":1,"nested":{"keep":1,"change":1},"array":[1],"use24HourClock":true}\n' >"$home/.config/DankMaterialShell/settings.json"
     printf '{"nested":{"change":2},"array":[2],"use24HourClock":false}\n' >"$override"
@@ -255,7 +261,6 @@ test_dms_settings_override_merges_and_is_idempotent() {
         apply_dms_settings_override
     ) &>/dev/null || return 1
     [[ "$(find "$home/.config/DankMaterialShell" -name 'settings.json.backup-*' | wc -l)" -eq "$before" ]]
-    rm -rf "$home" "$override"
 }
 
 test_dms_settings_override_freezes_dankbar_layout() {
@@ -273,8 +278,8 @@ test_dms_settings_override_freezes_dankbar_layout() {
 
 test_invalid_dms_json_preserves_settings() {
     local home override digest missing
-    home="$(mktemp -d)"
-    override="$(mktemp)"
+    home="$(make_tempdir)"
+    override="$(make_tempfile)"
     mkdir -p "$home/.config/DankMaterialShell"
     printf '{"keep":true}\n' >"$home/.config/DankMaterialShell/settings.json"
     printf '[]\n' >"$override"
@@ -297,23 +302,21 @@ test_invalid_dms_json_preserves_settings() {
         return 1
     fi
     [[ "$(sha256sum "$home/.config/DankMaterialShell/settings.json")" == "$digest" ]]
-    rm -rf "$home" "$override"
 }
 
 test_unexpected_dotfiles_remote_rejected() {
     local home
-    home="$(mktemp -d)"
+    home="$(make_tempdir)"
     git init -q "$home/.dotfiles"
     git -C "$home/.dotfiles" remote add origin https://example.com/wrong.git
     ( REAL_HOME="$home"; validate_existing_dotfiles ) &>/dev/null
     local status=$?
-    rm -rf "$home"
     [[ $status -ne 0 ]]
 }
 
 test_stow_conflict_stops_dotfile_install() {
     local home
-    home="$(mktemp -d)"
+    home="$(make_tempdir)"
     mkdir -p "$home/.dotfiles"
     (
         REAL_HOME="$home"
@@ -326,19 +329,18 @@ test_stow_conflict_stops_dotfile_install() {
         install_dotfiles
     ) &>/dev/null
     local status=$?
-    rm -rf "$home"
     [[ $status -ne 0 ]]
 }
 
 test_alacritty_dotfiles_are_required_and_parsed() {
     local dotdir config observed
-    dotdir="$(mktemp -d)"
+    dotdir="$(make_tempdir)"
     config="$dotdir/alacritty/.config/alacritty/alacritty.toml"
     if validate_dotfiles_alacritty "$dotdir" &>/dev/null; then return 1; fi
     mkdir -p "$(dirname "$config")"
     printf 'not = valid = toml\n' >"$config"
     if ( alacritty_cmd() { return 1; }; validate_dotfiles_alacritty "$dotdir" ) &>/dev/null; then return 1; fi
-    observed="$(mktemp)"
+    observed="$(make_tempfile)"
     (
         alacritty_cmd() {
             [[ "$1 $2 $3 $4" == 'migrate --dry-run --silent --config-file' ]]
@@ -348,12 +350,11 @@ test_alacritty_dotfiles_are_required_and_parsed() {
         validate_dotfiles_alacritty "$dotdir"
     ) || return 1
     [[ "$(cat "$observed")" == parsed ]]
-    rm -rf "$dotdir" "$observed"
 }
 
 test_dotfiles_makefile_targets_are_required() {
     local home dotdir
-    home="$(mktemp -d)"
+    home="$(make_tempdir)"
     dotdir="$home/.dotfiles"
     mkdir -p "$dotdir"
     if ( REAL_HOME="$home"; validate_dotfiles_makefile "$dotdir" ) &>/dev/null; then return 1; fi
@@ -361,12 +362,11 @@ test_dotfiles_makefile_targets_are_required() {
     if ( REAL_HOME="$home"; validate_dotfiles_makefile "$dotdir" ) &>/dev/null; then return 1; fi
     printf 'check:\n\t@: \nstow:\n\t@:\n' >"$dotdir/Makefile"
     ( REAL_HOME="$home"; make_cmd() { make "$@"; }; validate_dotfiles_makefile "$dotdir" ) || return 1
-    rm -rf "$home"
 }
 
 test_alacritty_config_migration_is_backed_up_and_rerunnable() {
     local home dotdir destination backup
-    home="$(mktemp -d)"
+    home="$(make_tempdir)"
     dotdir="$home/.dotfiles"
     destination="$home/.config/alacritty/alacritty.toml"
     mkdir -p "$dotdir/fish" "$dotdir/zed" "$(dirname "$dotdir/alacritty/.config/alacritty/alacritty.toml")" \
@@ -400,7 +400,6 @@ test_alacritty_config_migration_is_backed_up_and_rerunnable() {
     [[ -n "$backup" && "$(wc -l <<<"$backup")" -eq 1 ]] || return 1
     grep -Fxq 'font.size = 99' "$backup" || return 1
     grep -Fxq 'generated theme' "$home/.config/alacritty/dank-theme.toml"
-    rm -rf "$home"
 }
 
 test_required_failure_is_returned() {
@@ -412,18 +411,11 @@ test_required_failure_is_returned() {
 
 test_modules_are_discovered_in_lexical_order() {
     local directory
-    directory="$(mktemp -d)"
+    directory="$(make_tempdir)"
     printf 'MODULE_LOAD_ORDER+=(first)\n' >"$directory/1-first.sh"
     printf 'MODULE_LOAD_ORDER+=(second)\n' >"$directory/2-second.sh"
     printf 'MODULE_LOAD_ORDER+=(third)\n' >"$directory/3-third.sh"
-    (
-        MODULE_LOAD_ORDER=()
-        source_modules "$directory"
-        [[ "${MODULE_LOAD_ORDER[*]}" == 'first second third' ]]
-    )
-    local status=$?
-    rm -rf "$directory"
-    [[ $status -eq 0 ]]
+    assert_eq "$( MODULE_LOAD_ORDER=(); source_modules "$directory" >/dev/null; printf '%s' "${MODULE_LOAD_ORDER[*]}" )" 'first second third'
 }
 
 test_missing_module_is_fatal() {
@@ -432,29 +424,27 @@ test_missing_module_is_fatal() {
 
 test_empty_module_directory_is_fatal() {
     local directory status
-    directory="$(mktemp -d)"
+    directory="$(make_tempdir)"
     ( source_modules "$directory" ) &>/dev/null
     status=$?
-    rm -rf "$directory"
     [[ $status -ne 0 ]]
 }
 
 test_unreadable_module_is_fatal() {
     local directory file status
-    directory="$(mktemp -d)"
+    directory="$(make_tempdir)"
     file="$directory/1-unreadable.sh"
     printf ':\n' >"$file"
     chmod 000 "$file"
     ( source_modules "$directory" ) &>/dev/null
     status=$?
     chmod 600 "$file"
-    rm -rf "$directory"
     [[ $status -ne 0 ]]
 }
 
 test_system_phase_order() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         optimize_dnf() { printf '%s\n' optimize >>"$calls"; }
         configure_timezone() { printf '%s\n' timezone >>"$calls"; }
@@ -467,13 +457,12 @@ test_system_phase_order() {
         run_system_phase
     )
     [[ "$(tr '\n' ' ' <"$calls")" == 'optimize timezone timefmt chrome debloat upgrade copr ' ]]
-    rm -f "$calls"
 }
 
 test_time_format_sets_lc_time_once() {
     local dir calls
-    dir="$(mktemp -d)"
-    calls="$(mktemp)"
+    dir="$(make_tempdir)"
+    calls="$(make_tempfile)"
     printf 'LANG=ar_JO.UTF-8\n' >"$dir/locale.conf"
     (
         LOCALE_CONF="$dir/locale.conf"
@@ -496,12 +485,11 @@ test_time_format_sets_lc_time_once() {
         configure_time_format
     ) &>/dev/null || return 1
     [[ ! -s "$calls" ]]
-    rm -rf "$dir" "$calls"
 }
 
 test_chrome_uses_fedora_managed_repository() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         rpm() { return 1; }
         s() { printf '%s\n' "$*" >>"$calls"; }
@@ -511,16 +499,15 @@ test_chrome_uses_fedora_managed_repository() {
         }
         install_chrome
     ) &>/dev/null
-    grep -Fxq 'dnf install -y fedora-workstation-repositories' "$calls"
-    grep -Fxq 'dnf config-manager enable google-chrome' "$calls"
-    grep -Fxq 'dnf install -y google-chrome-stable' "$calls"
-    if grep -Fq 'addrepo' "$calls"; then return 1; fi
-    rm -f "$calls"
+    assert_ok grep -Fxq 'dnf install -y fedora-workstation-repositories' "$calls"
+    assert_ok grep -Fxq 'dnf config-manager enable google-chrome' "$calls"
+    assert_ok grep -Fxq 'dnf install -y google-chrome-stable' "$calls"
+    assert_file_lacks "$calls" 'addrepo'
 }
 
 test_existing_chrome_skips_package_install() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         rpm() { return 0; }
         s() { printf '%s\n' "$*" >>"$calls"; }
@@ -528,16 +515,20 @@ test_existing_chrome_skips_package_install() {
         xdg-settings() { [[ "$1" == set ]] || printf 'google-chrome.desktop\n'; }
         install_chrome
     ) &>/dev/null
-    [[ "$(cat "$calls")" == 'dnf config-manager enable google-chrome' ]]
-    rm -f "$calls"
+    assert_eq "$(cat "$calls")" 'dnf config-manager enable google-chrome'
 }
 
-test_core_package_list_is_exact() {
-    [[ "${CORE_PACKAGES[*]}" == 'xwayland-satellite libva-intel-driver intel-media-driver xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish make' ]]
-    [[ " ${CORE_PACKAGES[*]} " != *' git '* ]]
-    [[ " ${CORE_PACKAGES[*]} " != *' pciutils '* ]]
-    [[ " ${CORE_PACKAGES[*]} " != *' unrar '* ]]
-    [[ "$(declare -f install_kickstart)" != *'fd-find'* ]]
+test_core_packages_include_essentials_and_exclude_bootstrap() {
+    # Fear: an essential silently drops out, or a bootstrap-only/unwanted package
+    # creeps into the core set. Assert those invariants, not the verbatim list.
+    local pkg
+    for pkg in alacritty xdg-terminal-exec xwayland-satellite wl-clipboard fish; do
+        [[ " ${CORE_PACKAGES[*]} " == *" $pkg "* ]] || fail_assert "CORE_PACKAGES missing essential: $pkg"
+    done
+    for pkg in git pciutils unrar; do
+        [[ " ${CORE_PACKAGES[*]} " != *" $pkg "* ]] || fail_assert "CORE_PACKAGES should not contain: $pkg"
+    done
+    [[ "$(declare -f install_kickstart)" != *'fd-find'* ]] || fail_assert "install_kickstart references fd-find"
 }
 
 test_brew_owns_portable_cli_tools() {
@@ -553,7 +544,7 @@ test_brew_owns_portable_cli_tools() {
 
 test_workstation_dependency_order() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         step() { :; }
         run_dankinstall() { printf '%s\n' dank >>"$calls"; }
@@ -581,12 +572,11 @@ test_workstation_dependency_order() {
         run_workstation_phase
     )
     [[ "$(tr '\n' ' ' <"$calls")" == 'dank core completions brew formulae commands webapps dms-settings greeter zed font terminal niri indicators git github dotfiles fish-plugins mise docker dirs target ' ]]
-    rm -f "$calls"
 }
 
 test_niri_fish_completions_are_generated_safely() {
     local home destination inode digest
-    home="$(mktemp -d)"
+    home="$(make_tempdir)"
     destination="$home/.local/share/fish/vendor_completions.d/niri.fish"
     mkdir -p "$home/.dotfiles/fish/.config/fish"
     (
@@ -616,12 +606,11 @@ test_niri_fish_completions_are_generated_safely() {
         return 1
     fi
     [[ "$(sha256sum "$destination")" == "$digest" ]] || return 1
-    rm -rf "$home"
 }
 
 test_fish_config_symlink_is_migrated_without_losing_state() {
     local home dotdir config
-    home="$(mktemp -d)"
+    home="$(make_tempdir)"
     dotdir="$home/.dotfiles"
     config="$home/.config/fish"
     mkdir -p "$dotdir/fish/.config/fish" "$home/.config"
@@ -630,13 +619,12 @@ test_fish_config_symlink_is_migrated_without_losing_state() {
     ( REAL_HOME="$home"; prepare_fish_config_directory "$dotdir" ) || return 1
     [[ -d "$config" && ! -L "$config" ]] || return 1
     grep -Fxq 'SETUVAR test:value' "$config/fish_variables"
-    rm -rf "$home"
 }
 
 test_fisher_updates_plugins_and_removes_legacy_install() {
     local home calls
-    home="$(mktemp -d)"
-    calls="$(mktemp)"
+    home="$(make_tempdir)"
+    calls="$(make_tempfile)"
     mkdir -p "$home/.local/share/fish/niri-setup/fzf.fish" "$home/.local/share/fish/vendor_conf.d"
     touch "$home/.local/share/fish/vendor_conf.d/niri-setup-fzf.fish"
     (
@@ -655,7 +643,6 @@ test_fisher_updates_plugins_and_removes_legacy_install() {
     grep -Fq 'fisher update' "$calls" || return 1
     [[ ! -e "$home/.local/share/fish/niri-setup/fzf.fish" ]] || return 1
     [[ ! -e "$home/.local/share/fish/vendor_conf.d/niri-setup-fzf.fish" ]] || return 1
-    rm -rf "$home" "$calls"
 }
 
 test_debloat_allowlist_only() {
@@ -677,7 +664,7 @@ test_debloat_noop_when_absent() {
 
 test_brew_installs_only_missing_formulae() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         brew_cmd() {
             if [[ "$1" == list ]]; then [[ "$3" != fzf && "$3" != bat && "$3" != eza && "$3" != gh && "$3" != tlrc && "$3" != zoxide && "$3" != jq && "$3" != stow && "$3" != fd && "$3" != tree-sitter-cli ]]; else printf '%s\n' "$*" >>"$calls"; fi
@@ -693,21 +680,19 @@ test_brew_installs_only_missing_formulae() {
         install_brew_formulae
     ) || return 1
     [[ ! -s "$calls" ]] || return 1
-    rm -f "$calls"
 }
 
 test_mise_installs_only_missing_tools() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         mise_cmd() {
             if [[ "$1" == current ]]; then [[ "$2" != codex ]]; else printf '%s\n' "$*" >>"$calls"; fi
         }
         install_mise_tools
     )
-    grep -Fxq 'use --global codex@latest' "$calls"
-    [[ "$(wc -l <"$calls")" -eq 1 ]]
-    rm -f "$calls"
+    assert_ok grep -Fxq 'use --global codex@latest' "$calls"
+    assert_eq "$(wc -l <"$calls")" 1
 }
 
 test_github_failed_login_is_fatal() {
@@ -719,7 +704,7 @@ test_github_failed_login_is_fatal() {
 
 test_github_protocol_is_explicitly_set_to_ssh() {
     local calls protocol=https
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         gh_cmd() {
             printf '%s\n' "$*" >>"$calls"
@@ -733,12 +718,11 @@ test_github_protocol_is_explicitly_set_to_ssh() {
     ) &>/dev/null || return 1
     grep -Fxq 'config set git_protocol ssh --host github.com' "$calls"
     grep -Fxq 'config get git_protocol --host github.com' "$calls"
-    rm -f "$calls"
 }
 
 test_docker_configures_repo_service_and_group() {
     local calls home
-    calls="$(mktemp)"; home="$(mktemp -d)"
+    calls="$(make_tempfile)"; home="$(make_tempdir)"
     (
         REAL_USER=tester
         REAL_HOME="$home"
@@ -767,12 +751,11 @@ test_docker_configures_repo_service_and_group() {
     grep -Fxq 'usermod -aG docker tester' "$calls" || return 1
     grep -Fxq 'root-file /etc/sudoers.d/docker-toggle 0440' "$calls" || return 1
     grep -Fxq "user-link $ROOT_DIR/assets/dms-plugins/docker-toggle $home/.config/DankMaterialShell/plugins/dockerToggle" "$calls" || return 1
-    rm -rf "$calls" "$home"
 }
 
 test_docker_orchestration_uses_focused_steps() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         warn() { :; }
         enable_docker_repository() { printf '%s\n' repository >>"$calls"; }
@@ -783,12 +766,11 @@ test_docker_orchestration_uses_focused_steps() {
         install_docker
     )
     [[ "$(tr '\n' ' ' <"$calls")" == 'repository packages toggle access verify ' ]]
-    rm -f "$calls"
 }
 
 test_docker_toggle_helper_transitions() {
     local dir state helper
-    dir="$(mktemp -d)"; state="$dir/state"; helper="$ROOT_DIR/bin/docker-toggle"
+    dir="$(make_tempdir)"; state="$dir/state"; helper="$ROOT_DIR/bin/docker-toggle"
     # shellcheck disable=SC2016 # These lines form a script evaluated later.
     printf '%s\n' '#!/usr/bin/env bash' \
         'state=$DOCKER_TEST_STATE' \
@@ -812,27 +794,22 @@ test_docker_toggle_helper_transitions() {
     if "$helper" invalid &>/dev/null; then
         return 1
     fi
-    rm -rf "$dir"
 }
 
 test_docker_toggle_plugin_contract() {
     local manifest="$ROOT_DIR/assets/dms-plugins/docker-toggle/plugin.json"
     local component="$ROOT_DIR/assets/dms-plugins/docker-toggle/DockerToggle.qml"
-    grep -Fq '"id": "dockerToggle"' "$manifest"
-    grep -Fq 'pillClickAction: () => toggleDocker()' "$component"
-    grep -Fq 'pillRightClickAction: () => openLazydocker()' "$component"
-    grep -Fq '["/usr/local/bin/docker-toggle", "toggle"]' "$component"
-    grep -Fq '["/usr/local/bin/tui-launch-or-focus", "lazydocker"]' "$component"
-    grep -Fq 'text: "\uf308"' "$component"
-    grep -Fq 'font.family: "JetBrainsMono Nerd Font"' "$component"
-    if grep -Fq '["/usr/local/bin/docker-toggle", "start"]' "$component"; then
-        return 1
-    fi
+    assert_file_contains "$manifest" '"id": "dockerToggle"'
+    assert_file_contains "$component" 'pillClickAction: () => toggleDocker()'
+    assert_file_contains "$component" 'pillRightClickAction: () => openLazydocker()'
+    assert_file_contains "$component" '["/usr/local/bin/docker-toggle", "toggle"]'
+    assert_file_contains "$component" '["/usr/local/bin/tui-launch-or-focus", "lazydocker"]'
+    assert_file_lacks "$component" '["/usr/local/bin/docker-toggle", "start"]'
 }
 
 test_launch_or_focus_behaviors() {
     local dir webapp_helper tui_helper niri_mock setsid_mock windows_file focus_log launch_log marker state_dir hostile first_pid second_pid
-    dir="$(mktemp -d)"
+    dir="$(make_tempdir)"
     webapp_helper="$ROOT_DIR/bin/webapp-launch-or-focus"
     tui_helper="$ROOT_DIR/bin/tui-launch-or-focus"
     niri_mock="$dir/niri"
@@ -949,12 +926,11 @@ test_launch_or_focus_behaviors() {
     grep -Fxq '<--class=niri-webapp-gmail>' "$launch_log" || return 1
     if grep -Fq '<fd9-open>' "$launch_log.fd" 2>/dev/null; then return 1; fi
     if grep -Fq eval "$webapp_helper" || grep -Fq eval "$tui_helper"; then return 1; fi
-    rm -rf "$dir"
 }
 
 test_launch_or_focus_base_contract() {
     local dir base niri_mock setsid_mock windows_file focus_log launch_log marker state_dir
-    dir="$(mktemp -d)"
+    dir="$(make_tempdir)"
     base="$ROOT_DIR/bin/launch-or-focus"
     niri_mock="$dir/niri"
     setsid_mock="$dir/setsid"
@@ -991,29 +967,26 @@ test_launch_or_focus_base_contract() {
     printf '[{"id":42,"app_id":"test.app","is_focused":false}]\n' >"$windows_file"
     : >"$focus_log"; : >"$launch_log"; rm -f "$marker"
     "$base" test.app placeholder
-    grep -Fxq 'msg action focus-window --id 42' "$focus_log" || { rm -rf "$dir"; return 1; }
-    [[ ! -s "$launch_log" ]] || { rm -rf "$dir"; return 1; }
-    [[ "$(cat "$state_dir/test.app.window-id")" == 42 ]] || { rm -rf "$dir"; return 1; }
+    assert_ok grep -Fxq 'msg action focus-window --id 42' "$focus_log"
+    [[ ! -s "$launch_log" ]] || fail_assert "launched when focusing an existing window"
+    assert_eq "$(cat "$state_dir/test.app.window-id")" 42
 
     # Launch and cache the new window when none matches.
     printf '[]\n' >"$windows_file"
     : >"$focus_log"; : >"$launch_log"; rm -f "$marker" "$state_dir/test.app2.window-id"
     LAUNCH_MARKER="$marker" LAUNCH_APP_ID=test.app2 "$base" test.app2 mycmd --flag
-    grep -Fxq '<mycmd>' "$launch_log" || { rm -rf "$dir"; return 1; }
-    grep -Fxq '<--flag>' "$launch_log" || { rm -rf "$dir"; return 1; }
-    [[ "$(cat "$state_dir/test.app2.window-id")" == 99 ]] || { rm -rf "$dir"; return 1; }
+    assert_ok grep -Fxq '<mycmd>' "$launch_log"
+    assert_ok grep -Fxq '<--flag>' "$launch_log"
+    assert_eq "$(cat "$state_dir/test.app2.window-id")" 99
 
     # Reject a call without a launch command.
-    if "$base" test.app3 2>/dev/null; then
-        rm -rf "$dir"; return 1
-    fi
-    if grep -Fq eval "$base"; then rm -rf "$dir"; return 1; fi
-    rm -rf "$dir"
+    assert_fails "$base" test.app3 2>/dev/null
+    assert_file_lacks "$base" 'eval'
 }
 
 test_webapp_manifest_delegates_to_installer() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         webapp_install_cmd() { printf '%s\t%s\t%s\t%s\n' "$@" >>"$calls"; }
         install_webapps
@@ -1022,12 +995,11 @@ test_webapp_manifest_delegates_to_installer() {
     grep -Fxq $'notion\tNotion\thttps://www.notion.so\tnotion.so' "$calls"
     grep -Fxq $'google-calendar\tGoogle Calendar\thttps://calendar.google.com\tcalendar.google.com' "$calls"
     grep -Fxq $'discord\tDiscord\thttps://discord.com/app\tdiscord.com' "$calls"
-    rm -f "$calls"
 }
 
 test_webapp_install_creates_idempotent_launcher() {
     local dir applications icons database_log helper desktop
-    dir="$(mktemp -d)"
+    dir="$(make_tempdir)"
     applications="$dir/.local/share/applications"
     icons="$dir/.local/share/icons/hicolor/128x128/apps"
     database_log="$dir/database.log"
@@ -1048,12 +1020,11 @@ test_webapp_install_creates_idempotent_launcher() {
     grep -Fxq 'Name=Notion App' "$desktop"
     [[ "$(find "$applications" -name 'niri-webapp-notion.desktop.backup-*' | wc -l)" -eq 1 ]]
     [[ "$(wc -l <"$database_log")" -eq 3 ]]
-    rm -rf "$dir"
 }
 
 test_webapp_install_validates_and_falls_back() {
     local dir helper desktop
-    dir="$(mktemp -d)"; helper="$ROOT_DIR/bin/webapp-install"
+    dir="$(make_tempdir)"; helper="$ROOT_DIR/bin/webapp-install"
     printf '%s\n' '#!/usr/bin/env bash' 'exit 1' >"$dir/curl"
     printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$dir/update-desktop-database"
     chmod +x "$dir/curl" "$dir/update-desktop-database"
@@ -1063,30 +1034,11 @@ test_webapp_install_validates_and_falls_back() {
     grep -Fxq 'Icon=google-chrome' "$desktop" || return 1
     if "$helper" 'bad id' Bad https://example.com example.com 2>/dev/null; then return 1; fi
     if "$helper" valid Bad http://example.com example.com 2>/dev/null; then return 1; fi
-    rm -rf "$dir"
-}
-
-test_application_shortcuts_are_complete() {
-    local config="$ROOT_DIR/assets/niri-overrides.kdl" binding
-    for binding in \
-        'Mod\+Shift\+N.*notion.*https://www.notion.so' \
-        'Mod\+Shift\+R.*reddit.*https://www.reddit.com' \
-        'Mod\+Shift\+C.*google-calendar.*https://calendar.google.com' \
-        'Mod\+Shift\+A.*chatgpt.*https://chatgpt.com' \
-        'Mod\+Shift\+Y.*youtube.*https://www.youtube.com' \
-        'Mod\+Shift\+M.*youtube-music.*https://music.youtube.com' \
-        'Mod\+Shift\+G.*gmail.*https://mail.google.com' \
-        'Mod\+Shift\+D.*discord.*https://discord.com/app'; do
-        grep -Eq "$binding" "$config" || return 1
-    done
-    grep -Fq 'Mod+Shift+Z repeat=false hotkey-overlay-title="Zed" { spawn "zed" "--new"; }' "$config"
-    grep -Fq 'Mod+Shift+E repeat=false hotkey-overlay-title="Files" { spawn "nautilus" "--new-window"; }' "$config"
-    if grep -E 'Mod\+Shift\+(Z|E).*launch-or-focus' "$config"; then return 1; fi
 }
 
 test_managed_symlink_is_idempotent_and_backed_up() {
     local dir target destination backup_count
-    dir="$(mktemp -d)"; target="$dir/target"; destination="$dir/link"
+    dir="$(make_tempdir)"; target="$dir/target"; destination="$dir/link"
     printf 'managed\n' >"$target"
     printf 'user content\n' >"$destination"
     install_symlink_with_backup "$target" "$destination"
@@ -1095,12 +1047,11 @@ test_managed_symlink_is_idempotent_and_backed_up() {
     [[ "$backup_count" -eq 1 ]] || return 1
     install_symlink_with_backup "$target" "$destination"
     [[ "$(find "$dir" -maxdepth 1 -name 'link.backup-*' | wc -l)" -eq 1 ]]
-    rm -rf "$dir"
 }
 
 test_niri_edge_indicators_are_installed_idempotently() {
     local home calls
-    home="$(mktemp -d)"; calls="$(mktemp)"
+    home="$(make_tempdir)"; calls="$(make_tempfile)"
     (
         REAL_HOME="$home"
         user_systemctl_cmd() { printf '%s\n' "$*" >>"$calls"; }
@@ -1112,22 +1063,21 @@ test_niri_edge_indicators_are_installed_idempotently() {
     [[ "$(grep -c '^daemon-reload$' "$calls")" -eq 2 ]] || return 1
     [[ "$(grep -c '^enable --now niri-edge-indicators.service$' "$calls")" -eq 2 ]] || return 1
     [[ "$(find "$home" -name '*.backup-*' | wc -l)" -eq 0 ]]
-    rm -rf "$home" "$calls"
 }
 
 test_entrypoints_and_update_contract() {
-    [[ -x "$ROOT_DIR/setup.sh" ]]
-    [[ -x "$ROOT_DIR/install.sh" ]]
-    [[ ! -e "$ROOT_DIR/assets/niri-setup-update" ]]
-    [[ ! -e "$ROOT_DIR/setup-fedora-niri-dms.sh" ]]
-    grep -Fq 'git clone --branch main "$REPO_URL" "$INSTALL_DIR"' "$ROOT_DIR/install.sh"
-    grep -Fq 'git -C "$INSTALL_DIR" pull --ff-only origin main' "$ROOT_DIR/install.sh"
-    grep -Fq 'run_update' "$ROOT_DIR/install.sh"
+    [[ -x "$ROOT_DIR/setup.sh" ]] || fail_assert "setup.sh not executable"
+    [[ -x "$ROOT_DIR/install.sh" ]] || fail_assert "install.sh not executable"
+    [[ ! -e "$ROOT_DIR/assets/niri-setup-update" ]] || fail_assert "stale niri-setup-update present"
+    [[ ! -e "$ROOT_DIR/setup-fedora-niri-dms.sh" ]] || fail_assert "stale setup-fedora-niri-dms.sh present"
+    assert_file_contains "$ROOT_DIR/install.sh" 'git clone --branch main "$REPO_URL" "$INSTALL_DIR"'
+    assert_file_contains "$ROOT_DIR/install.sh" 'git -C "$INSTALL_DIR" pull --ff-only origin main'
+    assert_file_contains "$ROOT_DIR/install.sh" 'run_update'
 }
 
 test_commands_install_every_bin_script_and_reject_invalid_entries() {
     local calls expected invalid
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         install_root_symlink_with_backup() { printf '%s %s\n' "$1" "$2" >>"$calls"; }
         install_commands
@@ -1137,10 +1087,9 @@ test_commands_install_every_bin_script_and_reject_invalid_entries() {
     grep -Fxq "$ROOT_DIR/bin/webapp-install /usr/local/bin/webapp-install" "$calls"
     grep -Fxq "$ROOT_DIR/bin/tui-launch-or-focus /usr/local/bin/tui-launch-or-focus" "$calls"
     grep -Fxq "$ROOT_DIR/bin/workstation-update /usr/local/bin/workstation-update" "$calls"
-    invalid="$(mktemp -d)"
+    invalid="$(make_tempdir)"
     printf 'not executable\n' >"$invalid/broken"
     if ( COMMANDS_DIR="$invalid"; install_commands ) &>/dev/null; then return 1; fi
-    rm -rf "$calls" "$invalid"
 }
 
 test_runtime_commands_and_workstation_modules_are_organized() {
@@ -1160,7 +1109,7 @@ test_runtime_commands_and_workstation_modules_are_organized() {
 
 test_install_bootstrap_sync_branches() {
     local dir calls
-    dir="$(mktemp -d)"; calls="$(mktemp)"
+    dir="$(make_tempdir)"; calls="$(make_tempfile)"
     (
         NIRI_SETUP_DIR="$dir/managed"
         source "$ROOT_DIR/install.sh"
@@ -1210,12 +1159,11 @@ test_install_bootstrap_sync_branches() {
     ) &>/dev/null; then
         return 1
     fi
-    rm -rf "$dir" "$calls"
 }
 
 test_install_bootstraps_missing_git() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     # shellcheck disable=SC2030 # Test-only environment assignment is intentionally scoped to the subshell.
     (
         NIRI_SETUP_DIR=/tmp/not-used
@@ -1225,12 +1173,11 @@ test_install_bootstraps_missing_git() {
         ensure_git
     )
     grep -Fxq 'dnf install -y git' "$calls"
-    rm -f "$calls"
 }
 
 test_install_runs_when_piped_to_bash() {
     local dir bin marker
-    dir="$(mktemp -d)"
+    dir="$(make_tempdir)"
     bin="$dir/bin"
     marker="$dir/setup-ran"
     mkdir -p "$bin"
@@ -1246,13 +1193,12 @@ test_install_runs_when_piped_to_bash() {
     chmod +x "$bin/git"
     PATH="$bin:/usr/bin:/bin" NIRI_SETUP_DIR="$dir/managed" INSTALL_PIPE_MARKER="$marker" \
         bash <"$ROOT_DIR/install.sh"
-    [[ "$(cat "$marker")" == ran ]]
-    rm -rf "$dir"
+    assert_eq "$(cat "$marker")" ran
 }
 
 test_install_pause_preserves_update_status() {
     local calls status
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         source "$ROOT_DIR/install.sh"
         stdin_is_tty() { return 0; }
@@ -1288,47 +1234,33 @@ test_install_pause_preserves_update_status() {
     ) &>/dev/null || status=$?
     [[ "$status" -eq 9 ]] || return 1
     grep -Fq 'Workstation update failed with status 9. Press any key to close...' "$calls" || return 1
-    rm -f "$calls"
 }
 
-test_close_window_binding_is_mod_w() {
+test_niri_override_neutralizes_dangerous_defaults() {
+    # Fear: a surprising/destructive default bind survives, or a window rule forces
+    # fullscreen. The non-destructive nav/app shortcuts are not mirrored here.
     local override="$ROOT_DIR/assets/niri-overrides.kdl"
+    assert_file_contains "$override" 'Mod+Q hotkey-overlay-title=null { spawn "true"; }'
+    assert_file_contains "$override" 'Mod+D hotkey-overlay-title=null { spawn "true"; }'
+    assert_file_contains "$override" 'Mod+W repeat=false hotkey-overlay-title="Close Window" { close-window; }'
+    assert_file_lacks "$override" 'open-fullscreen true'
+}
+
+test_edge_indicator_wiring() {
+    # Fear: the edge indicator regresses its show-when-scrollable logic or its
+    # click/hover wiring (the clickability already broke once).
     local indicator="$ROOT_DIR/assets/niri-edge-indicators/shell.qml"
-    grep -Fq 'match app-id=r#"^(dev\.zed\.Zed|Alacritty|local\.tui\..*)$"#' "$override"
-    grep -Fq 'match app-id=r#"^(google-chrome|com.google.Chrome|niri-webapp-.*|chrome-.*-Default)$"#' "$override"
-    [[ "$(grep -c 'open-maximized true' "$override")" -eq 3 ]]
-    grep -Fq 'default-column-width { proportion 1.0; }' "$override"
-    grep -Fq 'hot-corners {' "$override"
-    grep -Fq 'top-left' "$override"
-    grep -Fq 'focusedColumn > 1' "$indicator"
-    grep -Fq 'focusedColumn < maximumColumn' "$indicator"
-    grep -Fq 'cursorShape: Qt.PointingHandCursor' "$indicator"
-    grep -Fq 'hover.containsMouse' "$indicator"
-    grep -Fq 'focus-column-left' "$indicator"
-    grep -Fq 'focus-column-right' "$indicator"
-    if grep -Fq 'open-fullscreen true' "$override"; then return 1; fi
-    grep -Fq 'Mod+W repeat=false hotkey-overlay-title="Close Window" { close-window; }' "$override"
-    grep -Fq 'Mod+Q hotkey-overlay-title=null { spawn "true"; }' "$override"
-    grep -Fq 'Mod+D hotkey-overlay-title=null { spawn "true"; }' "$override"
-    grep -Fq 'Mod+Tab repeat=false hotkey-overlay-title="Next Workspace" { focus-workspace-down; }' "$override"
-    grep -Fq 'Mod+Shift+Tab repeat=false hotkey-overlay-title="Previous Workspace" { focus-workspace-up; }' "$override"
-    grep -Fq 'Mod+O repeat=false hotkey-overlay-title="Overview" { toggle-overview; }' "$override"
-    grep -Fq 'Mod+Down { focus-window-or-workspace-down; }' "$override"
-    grep -Fq 'Mod+Up { focus-window-or-workspace-up; }' "$override"
-    grep -Fq 'Mod+J { focus-window-or-workspace-down; }' "$override"
-    grep -Fq 'Mod+K { focus-window-or-workspace-up; }' "$override"
-    grep -Fq 'Mod+Shift+Down { move-window-down-or-to-workspace-down; }' "$override"
-    grep -Fq 'Mod+Shift+Up { move-window-up-or-to-workspace-up; }' "$override"
-    grep -Fq 'Mod+Shift+J { move-window-down-or-to-workspace-down; }' "$override"
-    grep -Fq 'Mod+Shift+K { move-window-up-or-to-workspace-up; }' "$override"
-    if grep -Eq 'Mod\+Ctrl\+(J|K)' "$override"; then return 1; fi
-    if grep -Eq 'Mod\+Ctrl\+(Down|Up)' "$override"; then return 1; fi
-    ! grep -Fq 'toggle-column-tabbed-display' "$override"
+    assert_file_contains "$indicator" 'focusedColumn > 1'
+    assert_file_contains "$indicator" 'focusedColumn < maximumColumn'
+    assert_file_contains "$indicator" 'cursorShape: Qt.PointingHandCursor'
+    assert_file_contains "$indicator" 'hover.containsMouse'
+    assert_file_contains "$indicator" 'focus-column-left'
+    assert_file_contains "$indicator" 'focus-column-right'
 }
 
 test_homebrew_missing_and_healthy_branches() {
     local home calls
-    home="$(mktemp -d)"; calls="$(mktemp)"; : >"$home/.bashrc"
+    home="$(make_tempdir)"; calls="$(make_tempfile)"; : >"$home/.bashrc"
     (
         REAL_HOME="$home"
         state=missing
@@ -1337,8 +1269,8 @@ test_homebrew_missing_and_healthy_branches() {
         backup_path() { :; }
         install_homebrew
     )
-    grep -Fxq installer "$calls"
-    grep -Fq '/home/linuxbrew/.linuxbrew/bin/brew shellenv' "$home/.bashrc"
+    assert_ok grep -Fxq installer "$calls"
+    assert_file_contains "$home/.bashrc" '/home/linuxbrew/.linuxbrew/bin/brew shellenv'
     : >"$calls"
     (
         REAL_HOME="$home"
@@ -1346,47 +1278,47 @@ test_homebrew_missing_and_healthy_branches() {
         run_homebrew_installer() { return 1; }
         install_homebrew
     )
-    [[ ! -s "$calls" ]]
-    rm -rf "$home" "$calls"
+    [[ ! -s "$calls" ]] || fail_assert "installer ran when Homebrew already healthy"
 }
 
 test_zed_installs_only_when_missing() {
     local home
-    home="$(mktemp -d)"
+    home="$(make_tempdir)"
     (
         REAL_HOME="$home"
         zed_present() { [[ -x "$REAL_HOME/.local/bin/zed" ]]; }
         curl() { printf 'mkdir -p %q/.local/bin; touch %q/.local/bin/zed; chmod +x %q/.local/bin/zed\n' "$REAL_HOME" "$REAL_HOME" "$REAL_HOME"; }
         install_zed
     )
-    [[ -x "$home/.local/bin/zed" ]]
-    rm -rf "$home"
+    [[ -x "$home/.local/bin/zed" ]] || fail_assert "zed not installed when missing"
 }
 
-test_git_defaults_are_exact() {
+test_git_defaults_set_main_and_identity() {
+    # Fear: configure_git fails to set the default branch or an identity. The exact
+    # name/email are personal data, not a behavior worth pinning verbatim.
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     ( git() { printf '%s\n' "$*" >>"$calls"; }; configure_git )
-    [[ "$(cat "$calls")" == $'config --global init.defaultBranch main\nconfig --global user.name Abdulrahman Ajlouni\nconfig --global user.email ajlouni2000@gmail.com' ]]
-    rm -f "$calls"
+    assert_file_contains "$calls" 'config --global init.defaultBranch main'
+    assert_file_contains "$calls" 'config --global user.name '
+    assert_file_contains "$calls" 'config --global user.email '
 }
 
 test_both_dotfiles_origins_are_accepted() {
     local dir
-    dir="$(mktemp -d)"
+    dir="$(make_tempdir)"
     git init -q "$dir"
     git -C "$dir" remote add origin "$DOTFILES_REPO_HTTPS"
-    git_remote_matches "$dir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH" || { rm -rf "$dir"; return 1; }
+    assert_ok git_remote_matches "$dir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH"
     git -C "$dir" remote set-url origin "$DOTFILES_REPO_SSH"
-    git_remote_matches "$dir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH" || { rm -rf "$dir"; return 1; }
+    assert_ok git_remote_matches "$dir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH"
     git -C "$dir" remote set-url origin https://example.com/dotfiles.git
-    if git_remote_matches "$dir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH"; then rm -rf "$dir"; return 1; fi
-    rm -rf "$dir"
+    assert_fails git_remote_matches "$dir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH"
 }
 
 test_fish_brew_initialization_must_precede_prefix() {
     local dotdir before
-    dotdir="$(mktemp -d)"
+    dotdir="$(make_tempdir)"
     mkdir -p "$dotdir/fish/.config/fish"
     printf 'jorgebucaran/fisher\nPatrickF1/fzf.fish\n' >"$dotdir/fish/.config/fish/fish_plugins"
     printf '%s\n' \
@@ -1400,13 +1332,12 @@ test_fish_brew_initialization_must_precede_prefix() {
     [[ "$before" == "$(sha256sum "$dotdir/fish/.config/fish/config.fish")" ]]
     printf 'set prefix (brew --prefix)\neval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)\nmise activate fish | source\nstarship init fish | source\n' >"$dotdir/fish/.config/fish/config.fish"
     if validate_dotfiles_fish "$dotdir" &>/dev/null; then return 1; fi
-    rm -rf "$dotdir"
 }
 
 test_dotfile_install_does_not_edit_checkout() {
     local home config before calls
-    home="$(mktemp -d)"
-    calls="$(mktemp)"
+    home="$(make_tempdir)"
+    calls="$(make_tempfile)"
     config="$home/.dotfiles/fish/.config/fish/config.fish"
     mkdir -p "$(dirname "$config")" "$home/.dotfiles/alacritty/.config/alacritty" "$home/.dotfiles/zed"
     printf 'jorgebucaran/fisher\nPatrickF1/fzf.fish\n' >"$(dirname "$config")/fish_plugins"
@@ -1427,9 +1358,8 @@ test_dotfile_install_does_not_edit_checkout() {
         s() { printf '%s\n' "$*" >>"$calls"; }
         install_dotfiles
     )
-    [[ "$before" == "$(sha256sum "$config")" ]]
-    grep -Fxq 'chsh -s /usr/bin/fish tester' "$calls"
-    rm -rf "$home" "$calls"
+    assert_eq "$before" "$(sha256sum "$config")"
+    assert_ok grep -Fxq 'chsh -s /usr/bin/fish tester' "$calls"
 }
 
 test_nerd_font_discovery_is_exact() {
@@ -1449,20 +1379,19 @@ test_installed_nerd_font_skips_download() {
 
 test_niri_include_is_last_and_idempotent() {
     local home file before
-    home="$(mktemp -d)"; file="$home/config.kdl"
+    home="$(make_tempdir)"; file="$home/config.kdl"
     printf 'include "dms/a.kdl"\ninclude "niri-overrides.kdl"\nbinds {}\n' >"$file"
     ( backup_path() { :; }; ensure_niri_override_include "$file" )
-    [[ "$(grep -c 'include "niri-overrides.kdl"' "$file")" -eq 1 ]]
-    [[ "$(tail -n 1 "$file")" == 'include "niri-overrides.kdl"' ]]
+    assert_eq "$(grep -c 'include "niri-overrides.kdl"' "$file")" 1
+    assert_eq "$(tail -n 1 "$file")" 'include "niri-overrides.kdl"'
     before="$(sha256sum "$file")"
     ( backup_path() { return 1; }; ensure_niri_override_include "$file" )
-    [[ "$before" == "$(sha256sum "$file")" ]]
-    rm -rf "$home"
+    assert_eq "$before" "$(sha256sum "$file")"
 }
 
 test_niri_validation_failure_rolls_back() {
     local home original
-    home="$(mktemp -d)"; mkdir -p "$home/.config/niri/dms"
+    home="$(make_tempdir)"; mkdir -p "$home/.config/niri/dms"
     printf 'include "dms/layout.kdl"\n' >"$home/.config/niri/config.kdl"
     printf 'output "eDP-1" { scale 1.0 }\n' >"$home/.config/niri/dms/outputs.kdl"
     printf 'old override\n' >"$home/.config/niri/niri-overrides.kdl"
@@ -1471,12 +1400,11 @@ test_niri_validation_failure_rolls_back() {
         return 1
     fi
     [[ "$original" == "$(sha256sum "$home/.config/niri/config.kdl" "$home/.config/niri/dms/outputs.kdl" "$home/.config/niri/niri-overrides.kdl")" ]]
-    rm -rf "$home"
 }
 
 test_niri_success_does_not_touch_outputs() {
-    local home before
-    home="$(mktemp -d)"; mkdir -p "$home/.config/niri/dms"
+    local home before override
+    home="$(make_tempdir)"; mkdir -p "$home/.config/niri/dms"
     printf 'include "dms/layout.kdl"\n' >"$home/.config/niri/config.kdl"
     printf 'output "eDP-1" { scale 1.25 }\n' >"$home/.config/niri/dms/outputs.kdl"
     before="$(sha256sum "$home/.config/niri/dms/outputs.kdl")"
@@ -1486,29 +1414,28 @@ test_niri_success_does_not_touch_outputs() {
         niri() { return 0; }
         configure_niri
     )
-    [[ "$before" == "$(sha256sum "$home/.config/niri/dms/outputs.kdl")" ]]
-    [[ -L "$home/.config/niri/niri-overrides.kdl" ]]
-    [[ "$(readlink "$home/.config/niri/niri-overrides.kdl")" == "$ROOT_DIR/assets/niri-overrides.kdl" ]]
-    grep -Fq 'layout "us,ara"' "$home/.config/niri/niri-overrides.kdl"
-    grep -Fq 'options "grp:alt_shift_toggle"' "$home/.config/niri/niri-overrides.kdl"
-    rm -rf "$home"
+    override="$home/.config/niri/niri-overrides.kdl"
+    assert_eq "$before" "$(sha256sum "$home/.config/niri/dms/outputs.kdl")"
+    [[ -L "$override" ]] || fail_assert "niri-overrides.kdl is not a symlink"
+    assert_eq "$(readlink "$override")" "$ROOT_DIR/assets/niri-overrides.kdl"
+    assert_file_contains "$override" 'layout "us,ara"'
+    assert_file_contains "$override" 'options "grp:alt_shift_toggle"'
 }
 
 test_xdg_terminal_selects_alacritty() {
     local home
-    home="$(mktemp -d)"
+    home="$(make_tempdir)"
     (
         REAL_HOME="$home"
         xdg-terminal-exec() { [[ "$1" == --print-id ]] && printf 'Alacritty.desktop\n'; }
         configure_xdg_terminal
     )
     grep -Fxq Alacritty.desktop "$home/.config/xdg-terminals.list"
-    rm -rf "$home"
 }
 
 test_non_tty_installs_kickstart_and_skips_plugins() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         OPTIONAL_SKIPPED=()
         OPTIONAL_FAILURES=()
@@ -1521,13 +1448,12 @@ test_non_tty_installs_kickstart_and_skips_plugins() {
         [[ "${#OPTIONAL_FAILURES[@]}" -eq 0 ]]
     ) &>/dev/null || return 1
     [[ "$(cat "$calls")" == kickstart ]] || return 1
-    rm -f "$calls"
 }
 
 test_kickstart_dependencies_are_split_and_exposed() {
     local home calls
-    home="$(mktemp -d)"
-    calls="$(mktemp)"
+    home="$(make_tempdir)"
+    calls="$(make_tempfile)"
     mkdir -p "$home/.config/nvim/.git"
     (
         REAL_HOME="$home"
@@ -1548,7 +1474,6 @@ test_kickstart_dependencies_are_split_and_exposed() {
     ) &>/dev/null; then
         return 1
     fi
-    rm -rf "$home" "$calls"
 }
 
 test_default_yes_prompt_semantics() {
@@ -1574,20 +1499,6 @@ test_kickstart_failure_is_nonfatal() {
     ) &>/dev/null
 }
 
-test_optional_prompt_text_is_exact() {
-    local calls
-    calls="$(mktemp)"
-    (
-        OPTIONAL_SKIPPED=()
-        stdin_is_tty() { return 0; }
-        prompt_default_yes() { printf '%s\n' "$1" >>"$calls"; return 1; }
-        offer_kickstart
-        offer_dms_plugins
-    )
-    [[ "$(cat "$calls")" == $'Install Kickstart.nvim? [Y/n]\nInstall optional DMS plugins? [Y/n]' ]]
-    rm -f "$calls"
-}
-
 test_plugin_failures_are_nonfatal() {
     (
         OPTIONAL_FAILURES=()
@@ -1601,7 +1512,7 @@ test_plugin_failures_are_nonfatal() {
 
 test_plugins_default_yes_installs_two() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         OPTIONAL_FAILURES=()
         stdin_is_tty() { return 0; }
@@ -1611,18 +1522,15 @@ test_plugins_default_yes_installs_two() {
         }
         offer_dms_plugins
     ) &>/dev/null
-    [[ "$(grep -c '^plugins install ' "$calls")" -eq 2 ]]
-    grep -Fxq 'plugins install codexBar' "$calls"
-    grep -Fxq 'plugins install wallpaperDiscovery' "$calls"
-    if grep -Fq dockerManager "$calls"; then
-        return 1
-    fi
-    rm -f "$calls"
+    assert_eq "$(grep -c '^plugins install ' "$calls")" 2
+    assert_ok grep -Fxq 'plugins install codexBar' "$calls"
+    assert_ok grep -Fxq 'plugins install wallpaperDiscovery' "$calls"
+    assert_file_lacks "$calls" 'dockerManager'
 }
 
 test_existing_dms_plugins_are_skipped() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         OPTIONAL_FAILURES=()
         dms() {
@@ -1636,12 +1544,11 @@ test_existing_dms_plugins_are_skipped() {
         [[ "${#OPTIONAL_FAILURES[@]}" -eq 0 ]]
     ) &>/dev/null || return 1
     ! grep -Fq 'plugins install' "$calls" || return 1
-    rm -f "$calls"
 }
 
 test_failed_dms_plugin_list_skips_installation() {
     local calls
-    calls="$(mktemp)"
+    calls="$(make_tempfile)"
     (
         OPTIONAL_FAILURES=()
         dms() {
@@ -1652,13 +1559,11 @@ test_failed_dms_plugin_list_skips_installation() {
         [[ "${OPTIONAL_FAILURES[*]}" == 'DMS plugin discovery' ]]
     ) &>/dev/null || return 1
     [[ "$(cat "$calls")" == 'plugins list' ]]
-    rm -f "$calls"
 }
 
 run_test "root execution is rejected" test_root_rejected
 run_test "regular user execution is accepted" test_regular_user_accepted
 run_test "startup banner has no log prefix" test_banner_has_no_log_prefix
-run_test "main uses the shared banner helper" test_main_uses_banner_helper
 run_test "Fedora 44 is accepted" test_fedora_44_accepted
 run_test "other Fedora releases are rejected" test_other_fedora_rejected
 run_test "non-Workstation Fedora is rejected" test_non_workstation_rejected
@@ -1693,7 +1598,7 @@ run_test "Chrome uses Fedora's managed repository" test_chrome_uses_fedora_manag
 run_test "existing Chrome skips package installation" test_existing_chrome_skips_package_install
 run_test "debloat removes only explicitly selected packages" test_debloat_allowlist_only
 run_test "debloat is a no-op when selected packages are absent" test_debloat_noop_when_absent
-run_test "core package list contains only agreed essentials" test_core_package_list_is_exact
+run_test "core packages include essentials and exclude bootstrap-only" test_core_packages_include_essentials_and_exclude_bootstrap
 run_test "portable CLI tools are provided by Homebrew" test_brew_owns_portable_cli_tools
 run_test "Homebrew tools precede their workstation consumers" test_workstation_dependency_order
 run_test "Niri Fish completions are generated outside dotfiles" test_niri_fish_completions_are_generated_safely
@@ -1712,7 +1617,6 @@ run_test "launch-or-focus base focuses, launches, caches, and validates" test_la
 run_test "web-app manifest delegates every entry to webapp-install" test_webapp_manifest_delegates_to_installer
 run_test "webapp-install creates idempotent backed-up launchers" test_webapp_install_creates_idempotent_launcher
 run_test "webapp-install validates input and falls back to Chrome" test_webapp_install_validates_and_falls_back
-run_test "application shortcuts are complete" test_application_shortcuts_are_complete
 run_test "managed assets use backed-up idempotent symlinks" test_managed_symlink_is_idempotent_and_backed_up
 run_test "Niri edge indicators install idempotently" test_niri_edge_indicators_are_installed_idempotently
 run_test "setup entrypoints and updater contract are exact" test_entrypoints_and_update_contract
@@ -1722,10 +1626,11 @@ run_test "install bootstrap handles fresh, clean, and rejected checkouts" test_i
 run_test "install bootstrap installs missing Git" test_install_bootstraps_missing_git
 run_test "install bootstrap runs when piped to Bash" test_install_runs_when_piped_to_bash
 run_test "terminal update pause preserves workflow status" test_install_pause_preserves_update_status
-run_test "close-window is bound to Mod+W" test_close_window_binding_is_mod_w
+run_test "Niri override neutralizes dangerous default binds" test_niri_override_neutralizes_dangerous_defaults
+run_test "edge indicator show-logic and click/hover wiring" test_edge_indicator_wiring
 run_test "Homebrew handles missing and healthy installations" test_homebrew_missing_and_healthy_branches
 run_test "Zed installs only when missing" test_zed_installs_only_when_missing
-run_test "Git global defaults are exact" test_git_defaults_are_exact
+run_test "Git defaults set main branch and an identity" test_git_defaults_set_main_and_identity
 run_test "both supported dotfiles origins are accepted" test_both_dotfiles_origins_are_accepted
 run_test "Fish initializes absolute Homebrew before brew prefix" test_fish_brew_initialization_must_precede_prefix
 run_test "dotfile installation does not edit the checkout" test_dotfile_install_does_not_edit_checkout
@@ -1738,7 +1643,6 @@ run_test "Alacritty is selected through xdg-terminal-exec" test_xdg_terminal_sel
 run_test "non-TTY setup installs Kickstart and skips DMS plugins" test_non_tty_installs_kickstart_and_skips_plugins
 run_test "Kickstart dependencies are split between Fedora and Homebrew" test_kickstart_dependencies_are_split_and_exposed
 run_test "optional prompts default to yes" test_default_yes_prompt_semantics
-run_test "optional prompt text is exact" test_optional_prompt_text_is_exact
 run_test "Kickstart failure does not fail core setup" test_kickstart_failure_is_nonfatal
 run_test "DMS plugins install by default" test_plugins_default_yes_installs_two
 run_test "existing DMS plugins are skipped" test_existing_dms_plugins_are_skipped

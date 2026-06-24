@@ -129,10 +129,13 @@ install_niri_edge_indicators() {
 }
 
 ensure_niri_override_include() {
-    local file=$1 generated
+    local file=$1 generated body
     generated="$(mktemp)"
-    sed '/^[[:space:]]*include[[:space:]]*"niri-overrides.kdl"[[:space:]]*$/d' "$file" >"$generated"
-    printf '\ninclude "niri-overrides.kdl"\n' >>"$generated"
+    # Drop any existing override include, then re-append it last. Command
+    # substitution trims trailing newlines so repeated runs stay idempotent
+    # (otherwise the leading "\n" accumulates a blank line on every run).
+    body="$(sed '/^[[:space:]]*include[[:space:]]*"niri-overrides.kdl"[[:space:]]*$/d' "$file")"
+    printf '%s\n\ninclude "niri-overrides.kdl"\n' "$body" >"$generated"
     if ! cmp -s "$generated" "$file"; then
         backup_path "$file"
         install -m 0644 "$generated" "$file"
