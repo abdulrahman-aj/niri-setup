@@ -1,46 +1,32 @@
 #!/usr/bin/env bash
 
-homebrew_present() { [[ -x "$BREW_BIN" ]]; }
+zed_present() { have_command zed || [[ -x "$REAL_HOME/.local/bin/zed" ]]; }
 
-run_homebrew_installer() {
-    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+install_zed() {
+    if ! zed_present; then
+        curl -f https://zed.dev/install.sh | sh
+    fi
+    zed_present || { err "Zed installation failed."; return 1; }
 }
 
-brew_cmd() { "$BREW_BIN" "$@"; }
-brew_bin_dir() { dirname "$BREW_BIN"; }
-brew_tool_present() { [[ -x "$(brew_bin_dir)/$1" ]]; }
-gh_cmd() { "$(brew_bin_dir)/gh" "$@"; }
-mise_cmd() { "$(brew_bin_dir)/mise" "$@"; }
-jq_cmd() { "$(brew_bin_dir)/jq" "$@"; }
-make_cmd() { PATH="$(brew_bin_dir):$PATH" make "$@"; }
-alacritty_cmd() { alacritty "$@"; }
-system_fish_cmd() { /usr/bin/fish "$@"; }
-
-install_homebrew() {
-    local bashrc line generated
-    homebrew_present || run_homebrew_installer
-    homebrew_present || { err "Homebrew installation failed."; return 1; }
-    # shellcheck disable=SC2016 # This must run when a future Bash shell starts.
-    line='eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'
-    bashrc="$REAL_HOME/.bashrc"
-    touch "$bashrc"
-    if ! grep -Fqx "$line" "$bashrc"; then
-        generated="$(mktemp)"
-        cat "$bashrc" >"$generated"
-        printf '\n%s\n' "$line" >>"$generated"
-        install_file_with_backup "$generated" "$bashrc"
-        rm -f "$generated"
-    fi
+nerd_font_present() {
+    [[ "$(fc-match -f '%{family}\n' 'JetBrainsMono Nerd Font')" == *'JetBrainsMono Nerd Font'* ]]
 }
 
-install_brew_formulae() {
-    local formula missing=()
-    for formula in "${BREW_FORMULAE[@]}"; do
-        brew_cmd list --formula "$formula" &>/dev/null || missing+=("$formula")
-    done
-    if ((${#missing[@]})); then
-        brew_cmd install "${missing[@]}"
+install_nerd_font() {
+    local font_dir="$REAL_HOME/.local/share/fonts/JetBrainsMonoNerdFont" tempdir archive
+    if nerd_font_present; then
+        log "JetBrainsMono Nerd Font is installed"
+        return 0
     fi
+    tempdir="$(mktemp -d)"
+    archive="$tempdir/JetBrainsMono.tar.xz"
+    trap 'rm -rf "${tempdir:-}"; trap - RETURN' RETURN
+    download_and_verify "$NERD_FONT_URL" "$NERD_FONT_SHA256" "$archive" || return 1
+    mkdir -p "$font_dir"
+    tar -xJf "$archive" -C "$font_dir" --wildcards '*.ttf'
+    fc-cache -f "$font_dir"
+    nerd_font_present || { err "JetBrainsMono Nerd Font was not discovered."; return 1; }
 }
 
 configure_git() {
@@ -60,11 +46,3 @@ ensure_github_auth() {
     protocol="$(gh_cmd config get git_protocol --host github.com)"
     [[ "$protocol" == ssh ]] || { err "GitHub CLI git protocol is not SSH."; return 1; }
 }
-
-install_mise_tools() {
-    local tool
-    for tool in "${MISE_TOOLS[@]}"; do
-        mise_cmd current "$tool" &>/dev/null || mise_cmd use --global "${tool}@latest"
-    done
-}
-
