@@ -108,8 +108,8 @@ run_system_phase() {
     optimize_dnf
     configure_timezone
     configure_time_format
-    install_chrome
     debloat_system
+    install_chrome
     system_update
     enable_danklinux_copr
 }

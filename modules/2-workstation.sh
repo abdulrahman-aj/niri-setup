@@ -12,15 +12,25 @@ source_modules "$ROOT_DIR/modules/workstation"
 
 run_workstation_phase() {
     step "Core workstation"
+
+    # DNF
     run_dankinstall
     install_core_packages
-    install_niri_fish_completions
+    install_dms_greeter
+    install_docker
+
+    # Homebrew
     install_homebrew
     install_brew_formulae
+
+    # Mise
+    install_mise_tools
+
+    # Config / dotfiles
     install_commands
     install_webapps
     apply_dms_settings_override
-    install_dms_greeter
+    install_niri_fish_completions
     install_zed
     install_nerd_font
     configure_xdg_terminal
@@ -30,8 +40,6 @@ run_workstation_phase() {
     ensure_github_auth
     install_dotfiles
     install_fish_plugins
-    install_mise_tools
-    install_docker
     create_xdg_dirs
     set_graphical_target
 }
