@@ -24,7 +24,7 @@ optimize_dnf() {
         END { if (!parallel) print "max_parallel_downloads=10"; if (!default_yes) print "defaultyes=True" }
     ' "$conf" >"$generated"
     cmp -s "$generated" "$conf" || s install -m 0644 "$generated" "$conf"
-    log "DNF settings configured"
+    log "DNF optimized"
 }
 
 configure_timezone() {
@@ -67,7 +67,7 @@ install_chrome() {
     have_command xdg-settings || { err "xdg-settings is required to select Chrome."; return 1; }
     xdg-settings set default-web-browser google-chrome.desktop
     [[ "$(xdg-settings get default-web-browser)" == google-chrome.desktop ]] || { err "Chrome was not selected as the default browser."; return 1; }
-    log "Google Chrome installed and selected"
+    log "Chrome set as default browser"
 }
 
 installed_debloat_packages() {
@@ -89,9 +89,9 @@ debloat_system() {
     mapfile -t packages < <(installed_debloat_packages | sort -u)
     if ((${#packages[@]})); then
         s dnf remove -y --setopt=clean_requirements_on_remove=False "${packages[@]}"
-        log "Removed selected Fedora/GNOME applications"
+        log "Removed pre-installed apps"
     else
-        log "No selected debloat packages are installed"
+        log "Nothing to remove — already clean"
     fi
 }
 
@@ -104,7 +104,7 @@ enable_danklinux_copr() {
 }
 
 run_system_phase() {
-    step "System preparation"
+    step "Preparing your system"
     optimize_dnf
     configure_timezone
     configure_time_format

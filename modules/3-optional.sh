@@ -2,12 +2,6 @@
 
 stdin_is_tty() { [[ -t 0 ]]; }
 
-prompt_default_yes() {
-    local prompt=$1 answer
-    read -r -p "$prompt" answer || answer=""
-    [[ "$answer" != n && "$answer" != N ]]
-}
-
 kickstart_is_expected() {
     local dir=$1 remote
     [[ -d "$dir/.git" ]] || return 1
@@ -39,11 +33,6 @@ install_kickstart() {
 }
 
 offer_kickstart() {
-    if stdin_is_tty && ! prompt_default_yes 'Install Kickstart.nvim? [Y/n]'; then
-        OPTIONAL_SKIPPED+=("Kickstart.nvim")
-        return 0
-    fi
-    stdin_is_tty || info "Non-interactive input: installing Kickstart.nvim (default: yes)"
     if ! install_kickstart; then
         warn "Optional Kickstart.nvim installation failed"
         OPTIONAL_FAILURES+=("Kickstart.nvim")
@@ -71,11 +60,7 @@ install_optional_dms_plugins() {
 
 offer_dms_plugins() {
     if ! stdin_is_tty; then
-        info "Non-interactive input: skipping optional DMS plugins"
-        OPTIONAL_SKIPPED+=("DMS plugins")
-        return 0
-    fi
-    if ! prompt_default_yes 'Install optional DMS plugins? [Y/n]'; then
+        info "Non-interactive setup: skipping optional DMS plugins"
         OPTIONAL_SKIPPED+=("DMS plugins")
         return 0
     fi
@@ -83,16 +68,19 @@ offer_dms_plugins() {
 }
 
 run_optional_phase() {
-    step "Optional personalization"
+    step "Finishing touches"
     offer_kickstart
     offer_dms_plugins
 }
 
 print_summary() {
-    printf '\n%b\n' "${GREEN}${BOLD}Core setup complete.${NC}"
-    printf '%s\n' "Verified Fedora ${FEDORA_VERSION} Workstation, desktop stack, developer tools, Docker, and configuration."
-    ((${#OPTIONAL_SKIPPED[@]})) && info "Optional items skipped: ${OPTIONAL_SKIPPED[*]}"
-    ((${#OPTIONAL_FAILURES[@]})) && warn "Optional items that failed: ${OPTIONAL_FAILURES[*]}"
-    warn "Set the eDP-1 display scale to 1.67 through DMS after login."
-    printf '%b\n' "${YELLOW}Reboot to activate the graphical session and new Docker group membership.${NC}"
+    printf '\n%b\n' "${GREEN}${BOLD}All done!${NC}"
+    printf '%s\n' "Your Niri desktop is ready. Reboot to start your graphical session and activate Docker group membership."
+    ((${#OPTIONAL_SKIPPED[@]})) && info "Skipped: ${OPTIONAL_SKIPPED[*]}"
+    ((${#OPTIONAL_FAILURES[@]})) && warn "Failed (non-fatal): ${OPTIONAL_FAILURES[*]}"
+    printf '\n%b\n' "${BOLD}After your first login:${NC}"
+    printf '%s\n' "  • Set the eDP-1 display scale to 1.67 in DMS settings"
+    printf '%s\n' "  • Enable dockerToggle in DMS Plugins and add it to the right side of DankBar"
+    printf '%s\n' "  • Docker group is root-equivalent — don't add untrusted users"
+    printf '\n'
 }

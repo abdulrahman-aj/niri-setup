@@ -11,7 +11,7 @@ readonly MISE_TOOLS=(opencode codex claude-code)
 source_modules "$ROOT_DIR/modules/workstation"
 
 run_workstation_phase() {
-    step "Core workstation"
+    step "Setting up your desktop"
 
     # DNF
     run_dankinstall

@@ -13,7 +13,7 @@ run_dankinstall() {
     download_and_verify "$DANKINSTALL_URL" "$DANKINSTALL_SHA256" "$archive" || return 1
     gzip -dc "$archive" >"$installer"
     chmod +x "$installer"
-    info "DankInstall is interactive; select Niri in the TUI."
+    info "An interactive installer is about to open — select Niri."
     DMS_PRIVESC=sudo "$installer"
     core_stack_complete || {
         err "DankInstall finished without the complete desktop stack."
@@ -28,7 +28,7 @@ install_dms_greeter() {
     fi
     dms_cmd greeter sync -y
     dms_cmd greeter status
-    log "dms-greeter is configured and synced"
+    log "Login screen ready"
 }
 
 apply_dms_settings_override() {
@@ -51,7 +51,7 @@ apply_dms_settings_override() {
         return 1
     }
     install_file_atomically_with_backup "$generated" "$settings"
-    log "Repository-managed DMS settings applied"
+    log "DMS settings applied"
 }
 
 install_core_packages() {

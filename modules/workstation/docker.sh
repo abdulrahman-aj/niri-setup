@@ -26,7 +26,6 @@ configure_docker_access() {
     s systemctl disable --now docker.service docker.socket
     if ! id -nG "$REAL_USER" | tr ' ' '\n' | grep -Fxq docker; then
         s usermod -aG docker "$REAL_USER"
-        warn "The docker group is root-equivalent. Log out or reboot before using Docker without sudo."
     fi
 }
 
@@ -43,5 +42,4 @@ install_docker() {
     install_docker_toggle
     configure_docker_access
     verify_docker_disabled
-    warn "Enable dockerToggle in DMS Plugins, then add it to the right side of DankBar."
 }

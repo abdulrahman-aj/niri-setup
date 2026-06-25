@@ -47,35 +47,20 @@ test_kickstart_dependencies_are_split_and_exposed() {
     fi
 }
 
-test_default_yes_prompt_semantics() {
-    local answer
-    for answer in '' y Y yes unexpected; do
-        (
-            prompt_default_yes 'prompt' <<<"$answer"
-        ) || return 1
-    done
-    for answer in n N; do
-        if prompt_default_yes 'prompt' <<<"$answer"; then return 1; fi
-    done
-}
-
 test_kickstart_failure_is_nonfatal() {
     (
         OPTIONAL_FAILURES=()
-        stdin_is_tty() { return 0; }
-        prompt_default_yes() { return 0; }
         install_kickstart() { return 1; }
         offer_kickstart
         [[ "${OPTIONAL_FAILURES[*]}" == 'Kickstart.nvim' ]]
     ) &>/dev/null
 }
 
-test_plugins_default_yes_installs_two() {
+test_dms_plugins_install_in_tty() {
     local calls; calls="$(make_tempfile)"
     (
         OPTIONAL_FAILURES=()
         stdin_is_tty() { return 0; }
-        prompt_default_yes() { return 0; }
         dms() {
             [[ "$*" == 'plugins list' ]] || printf '%s\n' "$*" >>"$calls"
         }
@@ -122,7 +107,6 @@ test_plugin_failures_are_nonfatal() {
     (
         OPTIONAL_FAILURES=()
         stdin_is_tty() { return 0; }
-        prompt_default_yes() { return 0; }
         dms() { [[ "$*" == 'plugins list' ]]; }
         offer_dms_plugins
         [[ "${#OPTIONAL_FAILURES[@]}" -eq 2 ]]
@@ -131,9 +115,8 @@ test_plugin_failures_are_nonfatal() {
 
 run_test "non-TTY setup installs Kickstart and skips DMS plugins" test_non_tty_installs_kickstart_and_skips_plugins
 run_test "Kickstart dependencies are split between Fedora and Homebrew" test_kickstart_dependencies_are_split_and_exposed
-run_test "optional prompts default to yes" test_default_yes_prompt_semantics
 run_test "Kickstart failure does not fail core setup" test_kickstart_failure_is_nonfatal
-run_test "DMS plugins install by default" test_plugins_default_yes_installs_two
+run_test "DMS plugins install in TTY mode" test_dms_plugins_install_in_tty
 run_test "existing DMS plugins are skipped" test_existing_dms_plugins_are_skipped
 run_test "failed DMS plugin listing skips installation" test_failed_dms_plugin_list_skips_installation
 run_test "DMS plugin failures do not fail core setup" test_plugin_failures_are_nonfatal

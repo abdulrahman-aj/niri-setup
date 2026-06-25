@@ -8,7 +8,7 @@ log()  { printf '%b\n' "${GREEN}[✓]${NC} $*"; }
 warn() { printf '%b\n' "${YELLOW}[!]${NC} $*"; }
 info() { printf '%b\n' "${BLUE}[i]${NC} $*"; }
 banner() { printf '%b\n' "${CYAN}${BOLD}$*${NC}"; }
-step() { printf '\n%b\n' "${MAGENTA}${BOLD}[==]${NC} ${BOLD}$*${NC}"; }
+step() { printf '\n%b\n\n' "${MAGENTA}${BOLD}[==]${NC} ${BOLD}$*${NC}"; }
 err()  { printf '%b\n' "${RED}[✗]${NC} $*" >&2; }
 
 s() {
@@ -101,7 +101,7 @@ validate_existing_dotfiles() {
 }
 
 preflight() {
-    step "Preflight"
+    step "Checking prerequisites"
     require_bootstrap_commands
     require_regular_user
     resolve_identity
