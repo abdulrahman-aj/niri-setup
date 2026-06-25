@@ -100,6 +100,11 @@ test_dms_settings_override_merges_and_is_idempotent() {
     [[ "$(find "$home/.config/DankMaterialShell" -name 'settings.json.backup-*' | wc -l)" -eq "$before" ]]
 }
 
+test_dms_settings_override_hides_lock_screen_media_player() {
+    local override="$ROOT_DIR/assets/dms-settings-override.json"
+    jq -e '.lockScreenShowMediaPlayer == false' "$override" &>/dev/null
+}
+
 test_dms_settings_override_freezes_dankbar_layout() {
     local override="$ROOT_DIR/assets/dms-settings-override.json"
     jq -e 'type == "object" and (.barConfigs | type == "array") and (.barConfigs | length == 1)' "$override" &>/dev/null || return 1
@@ -238,6 +243,7 @@ run_test "healthy greeter skips repair" test_greeter_healthy_skips_repair
 run_test "unhealthy greeter is repaired" test_greeter_repairs_failed_status
 run_test "DMS commands select sudo and forward status" test_dms_commands_select_sudo_and_forward_status
 run_test "DMS settings override merges safely and idempotently" test_dms_settings_override_merges_and_is_idempotent
+run_test "DMS settings override hides lock screen media player" test_dms_settings_override_hides_lock_screen_media_player
 run_test "DMS settings override freezes the DankBar layout" test_dms_settings_override_freezes_dankbar_layout
 run_test "invalid DMS JSON preserves existing settings" test_invalid_dms_json_preserves_settings
 run_test "Niri override neutralizes dangerous default binds" test_niri_override_neutralizes_dangerous_defaults
