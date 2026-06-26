@@ -26,7 +26,6 @@ run_workstation_phase() {
     # Mise
     install_mise_tools
 
-    # Config / dotfiles
     install_commands
     install_webapps
     apply_dms_settings_override
@@ -37,8 +36,7 @@ run_workstation_phase() {
     configure_niri
     install_niri_edge_indicators
     ensure_github_auth
-    install_dotfiles
-    install_fish_plugins
+    set_fish_shell
     create_xdg_dirs
     set_graphical_target
 }

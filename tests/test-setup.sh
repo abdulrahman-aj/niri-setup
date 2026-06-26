@@ -134,7 +134,7 @@ test_runtime_commands_and_workstation_modules_are_organized() {
     for command in docker-toggle launch-or-focus-tui launch-or-focus-webapp; do
         [[ ! -e "$ROOT_DIR/assets/$command" ]] || return 1
     done
-    for component in desktop development dotfiles commands webapps docker; do
+    for component in desktop development commands webapps docker; do
         [[ -r "$ROOT_DIR/modules/workstation/$component.sh" ]] || return 1
     done
 }

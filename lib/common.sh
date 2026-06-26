@@ -88,18 +88,6 @@ require_intel_graphics() {
     info "Intel graphics detected"
 }
 
-validate_existing_dotfiles() {
-    local dotdir="$REAL_HOME/.dotfiles" remote
-    [[ -e "$dotdir" ]] || return 0
-    [[ -d "$dotdir/.git" ]] || { err "${dotdir} exists but is not a Git repository."; exit 1; }
-    git_remote_matches "$dotdir" "$DOTFILES_REPO_HTTPS" "$DOTFILES_REPO_SSH" || {
-        remote="$(git -C "$dotdir" config --get remote.origin.url || true)"
-        err "${dotdir} has an unexpected origin: ${remote:-none}"
-        exit 1
-    }
-    log "Existing dotfiles repository validated; local checkout will be used"
-}
-
 preflight() {
     step "Checking prerequisites"
     require_bootstrap_commands
@@ -110,7 +98,6 @@ preflight() {
     install_bootstrap_packages
     require_commands
     require_intel_graphics
-    validate_existing_dotfiles
 }
 
 verify_checksum() {

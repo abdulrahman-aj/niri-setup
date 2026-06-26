@@ -1,6 +1,6 @@
 # Fedora Niri setup
 
-Personal automation: fresh Fedora 44 Workstation → Niri + DankMaterialShell, Alacritty, dotfiles, and dev tools. Idempotent; safe to rerun.
+Personal automation: fresh Fedora 44 Workstation → Niri + DankMaterialShell, Alacritty, and dev tools. Idempotent; safe to rerun.
 
 **Requirements:** Fedora 44 Workstation · x86\_64 · Intel graphics · regular user with sudo.
 

@@ -1,7 +1,7 @@
 .PHONY: test
 
 TEST_FILES := tests/test-setup.sh tests/test-system.sh tests/test-desktop.sh \
-              tests/test-dotfiles.sh tests/test-brew.sh tests/test-development.sh \
+              tests/test-brew.sh tests/test-development.sh \
               tests/test-docker.sh tests/test-commands.sh tests/test-optional.sh
 
 test:

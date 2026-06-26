@@ -7,8 +7,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly ROOT_DIR
 readonly REQUIRED_FEDORA_VERSION="44"
-readonly DOTFILES_REPO_HTTPS="https://github.com/abdulrahman-aj/dotfiles.git"
-readonly DOTFILES_REPO_SSH="git@github.com:abdulrahman-aj/dotfiles.git"
 
 REAL_USER=""
 REAL_HOME=""
@@ -41,7 +39,6 @@ source_modules() {
     fi
 }
 
-source_required "$ROOT_DIR/lib/git-remote.sh"
 source_required "$ROOT_DIR/lib/common.sh"
 source_modules "$ROOT_DIR/modules" || exit 1
 

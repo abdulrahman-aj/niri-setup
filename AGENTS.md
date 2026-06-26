@@ -1,6 +1,6 @@
 # niri-setup
 
-Personal automation to bootstrap a fresh Fedora 44 Workstation into a Niri desktop with DankMaterialShell (DMS), Alacritty, dotfiles, and development tools.
+Personal automation to bootstrap a fresh Fedora 44 Workstation into a Niri desktop with DankMaterialShell (DMS), Alacritty, and development tools.
 
 ## Purpose
 
@@ -13,15 +13,15 @@ Idempotent installer targeting Fedora 44 / x86_64 / Intel graphics. Designed to 
 | `setup.sh` | Entry point: validates environment, sources modules in order |
 | `install.sh` | Bootstrap: clones/updates managed checkout, then delegates to `setup.sh` |
 | `modules/1-system.sh` | DNF config, timezone, system upgrade, Chrome, debloat |
-| `modules/2-workstation.sh` | Niri, DMS, Alacritty, dotfiles, dev tools — sources `modules/workstation/` |
+| `modules/2-workstation.sh` | Niri, DMS, Alacritty, dev tools — sources `modules/workstation/` |
 | `modules/3-optional.sh` | Optional extras (DMS plugins, Kickstart.nvim) — failures never abort |
-| `modules/workstation/` | Submodules: commands, desktop, development, docker, dotfiles, webapps |
+| `modules/workstation/` | Submodules: commands, desktop, development, docker, webapps |
 | `lib/common.sh` | Shared logging helpers, `s()` sudo wrapper, guard functions |
 | `lib/git-remote.sh` | Remote-validation helpers used by `workstation-update` |
 | `bin/` | Installed helper scripts: `launch-or-focus`, `webapp-*`, `docker-toggle`, `workstation-update`, `tui-launch-or-focus` |
 | `assets/` | Static config: `niri-overrides.kdl`, `dms-settings-override.json`, `niri-edge-indicators/`, `dms-plugins/`, `webapps.json` |
 | `tests/lib.sh` | Shared test framework: `run_test`, `make_tempdir/file`, `assert_*` helpers |
-| `tests/test-*.sh` | TAP-style unit tests split by domain: setup, system, desktop, dotfiles, development, commands, optional |
+| `tests/test-*.sh` | TAP-style unit tests split by domain: setup, system, desktop, development, commands, optional |
 
 ## Commands
 

@@ -146,6 +146,10 @@ configure_niri() {
     fi
 }
 
+set_fish_shell() {
+    [[ "$(getent passwd "$REAL_USER" | cut -d: -f7)" == /usr/bin/fish ]] || s chsh -s /usr/bin/fish "$REAL_USER"
+}
+
 create_xdg_dirs() { have_command xdg-user-dirs-update && xdg-user-dirs-update; }
 
 set_graphical_target() {

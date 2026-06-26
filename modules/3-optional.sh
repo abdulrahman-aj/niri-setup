@@ -79,6 +79,7 @@ print_summary() {
     ((${#OPTIONAL_SKIPPED[@]})) && info "Skipped: ${OPTIONAL_SKIPPED[*]}"
     ((${#OPTIONAL_FAILURES[@]})) && warn "Failed (non-fatal): ${OPTIONAL_FAILURES[*]}"
     printf '\n%b\n' "${BOLD}After your first login:${NC}"
+    printf '%s\n' "  • Set up your dotfiles"
     printf '%s\n' "  • Set eDP-1 scale to 1.67 in DMS Display settings, then reboot"
     printf '%s\n' "  • Verify: Chrome opens desktop links; Alacritty is the default terminal"
     printf '%s\n' "  • Verify: GitHub auth, SSH fetch, and push work"
