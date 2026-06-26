@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+readonly BREW_BIN="/home/linuxbrew/.linuxbrew/bin/brew"
+
 homebrew_present() { [[ -x "$BREW_BIN" ]]; }
 
 run_homebrew_installer() {

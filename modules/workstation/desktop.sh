@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+readonly DANKINSTALL_VERSION="v1.4.6"
+readonly DANKINSTALL_URL="https://github.com/AvengeMedia/DankMaterialShell/releases/download/${DANKINSTALL_VERSION}/dankinstall-amd64.gz"
+readonly DANKINSTALL_SHA256="75f9a528c54f9048baa7994fb701d3c5799bee62cf0c7082a696ab6782df97e4"
+
 core_stack_complete() { have_command dms && have_command niri; }
 dms_cmd() { DMS_PRIVESC=sudo dms "$@"; }
 

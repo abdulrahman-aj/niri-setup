@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+readonly FISHER_BOOTSTRAP_URL="https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish"
+
 validate_dotfiles_fish() {
     local config="$1/fish/.config/fish/config.fish" plugins="$1/fish/.config/fish/fish_plugins"
     local brew_line prefix_line

@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+readonly NERD_FONT_VERSION="v3.4.0"
+readonly NERD_FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/${NERD_FONT_VERSION}/JetBrainsMono.tar.xz"
+readonly NERD_FONT_SHA256="ef552a3e638f25125c6ad4c51176a6adcdce295ab1d2ffacf0db060caf8c1582"
+
 zed_present() { have_command zed || [[ -x "$REAL_HOME/.local/bin/zed" ]]; }
 
 install_zed() {
