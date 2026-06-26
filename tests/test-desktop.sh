@@ -159,8 +159,8 @@ test_edge_indicator_wiring() {
     # Fear: the edge indicator regresses its show-when-scrollable logic or its
     # click/hover wiring (the clickability already broke once).
     local indicator="$ROOT_DIR/assets/niri-edge-indicators/shell.qml"
-    assert_file_contains "$indicator" 'focusedColumn > 1'
-    assert_file_contains "$indicator" 'focusedColumn < maximumColumn'
+    assert_file_contains "$indicator" 'focusedColumn <= 1'
+    assert_file_contains "$indicator" 'focusedColumn >= maximumColumn'
     assert_file_contains "$indicator" 'cursorShape: Qt.PointingHandCursor'
     assert_file_contains "$indicator" 'hover.containsMouse'
     assert_file_contains "$indicator" 'focus-column-left'

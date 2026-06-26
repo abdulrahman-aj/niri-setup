@@ -8,6 +8,7 @@ ShellRoot {
 
     property var workspaces: []
     property var windows: []
+    property bool inOverview: false
 
     function replaceWindow(window) {
         const index = windows.findIndex(candidate => candidate.id === window.id)
@@ -52,6 +53,8 @@ ShellRoot {
         } else if (event.WindowFocusChanged) {
             const id = event.WindowFocusChanged.id
             windows = windows.map(window => Object.assign({}, window, { is_focused: window.id === id }))
+        } else if (event.OverviewOpenedOrClosed) {
+            inOverview = event.OverviewOpenedOrClosed.is_open
         } else if (event.WindowLayoutsChanged) {
             const changes = event.WindowLayoutsChanged.changes || []
             const layouts = {}
@@ -61,7 +64,19 @@ ShellRoot {
         }
     }
 
-    function hasColumn(screenName, direction) {
+    function hasWorkspace(screenName, direction) {
+        const screenWs = workspaces
+            .filter(ws => ws.output === screenName)
+            .sort((a, b) => a.idx - b.idx)
+        const focusedIdx = screenWs.findIndex(ws => ws.is_focused)
+        if (focusedIdx < 0)
+            return false
+        if (direction < 0)
+            return focusedIdx > 0
+        return focusedIdx < screenWs.length - 1
+    }
+
+    function hasColumn(screenName, direction, screenWidth) {
         const workspace = workspaces.find(candidate => candidate.output === screenName && candidate.is_active)
         if (!workspace)
             return false
@@ -76,7 +91,19 @@ ShellRoot {
                 continue
             maximumColumn = Math.max(maximumColumn, window.layout.pos_in_scrolling_layout[0])
         }
-        return direction < 0 ? focusedColumn > 1 : focusedColumn < maximumColumn
+        if (direction < 0 ? focusedColumn <= 1 : focusedColumn >= maximumColumn)
+            return false
+        const columnWidths = {}
+        for (const window of windows) {
+            if (window.workspace_id !== workspace.id || window.is_floating || !window.layout?.pos_in_scrolling_layout || !window.layout?.tile_size)
+                continue
+            const col = window.layout.pos_in_scrolling_layout[0]
+            columnWidths[col] = Math.max(columnWidths[col] ?? 0, window.layout.tile_size[0])
+        }
+        const totalWidth = Object.values(columnWidths).reduce((sum, w) => sum + w, 0)
+        if (totalWidth <= screenWidth)
+            return false
+        return true
     }
 
     Process {
@@ -110,10 +137,10 @@ ShellRoot {
             required property var modelData
 
             screen: modelData
-            visible: root.hasColumn(modelData.name, -1)
+            visible: root.hasColumn(modelData.name, -1, modelData.width)
             color: "transparent"
-            implicitWidth: 26
-            implicitHeight: 52
+            implicitWidth: 40
+            implicitHeight: Math.round(modelData.height / 10)
             WlrLayershell.namespace: "niri-edge-indicator-left"
             WlrLayershell.layer: WlrLayer.Top
             WlrLayershell.exclusiveZone: -1
@@ -125,19 +152,18 @@ ShellRoot {
             }
 
             WlrLayershell.margins {
-                top: Math.max(0, Math.round((modelData.height - implicitHeight) / 2))
-                left: 6
+                top: Math.round(modelData.height * 9 / 20)
+                left: 0
             }
 
             Rectangle {
                 id: pill
-                anchors.fill: parent
+                x: root.inOverview ? 0 : 6
+                y: root.inOverview ? 0 : Math.round((parent.height - 52) / 2)
+                width: root.inOverview ? parent.width : 26
+                height: root.inOverview ? parent.height : 52
                 radius: width / 2
-                color: hover.containsMouse ? "#80000000" : "#40000000"
-
-                Behavior on color {
-                    ColorAnimation { duration: 120 }
-                }
+                color: hover.containsMouse ? "#28000000" : (root.inOverview ? "#28000000" : "#28000000")
 
                 MouseArea {
                     id: hover
@@ -176,10 +202,130 @@ ShellRoot {
             required property var modelData
 
             screen: modelData
-            visible: root.hasColumn(modelData.name, 1)
+            visible: root.inOverview && root.hasWorkspace(modelData.name, -1)
             color: "transparent"
-            implicitWidth: 26
-            implicitHeight: 52
+            implicitWidth: Math.round(modelData.height / 10)
+            implicitHeight: 40
+            WlrLayershell.namespace: "niri-edge-indicator-up"
+            WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.exclusiveZone: -1
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+            anchors {
+                top: true
+            }
+
+            WlrLayershell.margins {
+                top: 0
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: hover.containsMouse ? "#28000000" : "#28000000"
+
+
+                MouseArea {
+                    id: hover
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Quickshell.execDetached(["niri", "msg", "action", "focus-workspace-up"])
+                }
+
+                Canvas {
+                    anchors.centerIn: parent
+                    width: 20
+                    height: 11
+                    onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.reset()
+                        ctx.strokeStyle = "#CCFFFFFF"
+                        ctx.lineWidth = 3
+                        ctx.lineCap = "round"
+                        ctx.lineJoin = "round"
+                        ctx.beginPath()
+                        ctx.moveTo(1, height - 1)
+                        ctx.lineTo(width / 2, 2)
+                        ctx.lineTo(width - 1, height - 1)
+                        ctx.stroke()
+                    }
+                }
+            }
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        PanelWindow {
+            required property var modelData
+
+            screen: modelData
+            visible: root.inOverview && root.hasWorkspace(modelData.name, 1)
+            color: "transparent"
+            implicitWidth: Math.round(modelData.height / 10)
+            implicitHeight: 40
+            WlrLayershell.namespace: "niri-edge-indicator-down"
+            WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.exclusiveZone: -1
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+            anchors {
+                bottom: true
+            }
+
+            WlrLayershell.margins {
+                bottom: 0
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: hover.containsMouse ? "#28000000" : "#28000000"
+
+
+                MouseArea {
+                    id: hover
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Quickshell.execDetached(["niri", "msg", "action", "focus-workspace-down"])
+                }
+
+                Canvas {
+                    anchors.centerIn: parent
+                    width: 20
+                    height: 11
+                    onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.reset()
+                        ctx.strokeStyle = "#CCFFFFFF"
+                        ctx.lineWidth = 3
+                        ctx.lineCap = "round"
+                        ctx.lineJoin = "round"
+                        ctx.beginPath()
+                        ctx.moveTo(1, 1)
+                        ctx.lineTo(width / 2, height - 2)
+                        ctx.lineTo(width - 1, 1)
+                        ctx.stroke()
+                    }
+                }
+            }
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        PanelWindow {
+            required property var modelData
+
+            screen: modelData
+            visible: root.hasColumn(modelData.name, 1, modelData.width)
+            color: "transparent"
+            implicitWidth: 40
+            implicitHeight: Math.round(modelData.height / 10)
             WlrLayershell.namespace: "niri-edge-indicator-right"
             WlrLayershell.layer: WlrLayer.Top
             WlrLayershell.exclusiveZone: -1
@@ -191,19 +337,18 @@ ShellRoot {
             }
 
             WlrLayershell.margins {
-                top: Math.max(0, Math.round((modelData.height - implicitHeight) / 2))
-                right: 6
+                top: Math.round(modelData.height * 9 / 20)
+                right: 0
             }
 
             Rectangle {
                 id: pill
-                anchors.fill: parent
+                x: root.inOverview ? 0 : parent.width - 26 - 6
+                y: root.inOverview ? 0 : Math.round((parent.height - 52) / 2)
+                width: root.inOverview ? parent.width : 26
+                height: root.inOverview ? parent.height : 52
                 radius: width / 2
-                color: hover.containsMouse ? "#80000000" : "#40000000"
-
-                Behavior on color {
-                    ColorAnimation { duration: 120 }
-                }
+                color: hover.containsMouse ? "#28000000" : (root.inOverview ? "#28000000" : "#28000000")
 
                 MouseArea {
                     id: hover
