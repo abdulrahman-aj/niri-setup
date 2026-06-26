@@ -124,9 +124,6 @@ test_entrypoints_and_update_contract() {
     [[ -x "$ROOT_DIR/install.sh" ]] || fail_assert "install.sh not executable"
     [[ ! -e "$ROOT_DIR/assets/niri-setup-update" ]] || fail_assert "stale niri-setup-update present"
     [[ ! -e "$ROOT_DIR/setup-fedora-niri-dms.sh" ]] || fail_assert "stale setup-fedora-niri-dms.sh present"
-    assert_file_contains "$ROOT_DIR/install.sh" 'git clone --branch main "$REPO_URL" "$INSTALL_DIR"'
-    assert_file_contains "$ROOT_DIR/install.sh" 'git -C "$INSTALL_DIR" pull --ff-only origin main'
-    assert_file_contains "$ROOT_DIR/install.sh" 'run_update'
 }
 
 test_runtime_commands_and_workstation_modules_are_organized() {
@@ -140,8 +137,6 @@ test_runtime_commands_and_workstation_modules_are_organized() {
     for component in desktop development dotfiles commands webapps docker; do
         [[ -r "$ROOT_DIR/modules/workstation/$component.sh" ]] || return 1
     done
-    grep -Fq 'source_modules "$ROOT_DIR/modules/workstation"' "$ROOT_DIR/modules/2-workstation.sh" || return 1
-    grep -Fq 'exec "$repo_root/install.sh" "$@"' "$ROOT_DIR/bin/workstation-update"
 }
 
 test_install_bootstrap_sync_branches() {

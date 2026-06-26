@@ -79,8 +79,11 @@ print_summary() {
     ((${#OPTIONAL_SKIPPED[@]})) && info "Skipped: ${OPTIONAL_SKIPPED[*]}"
     ((${#OPTIONAL_FAILURES[@]})) && warn "Failed (non-fatal): ${OPTIONAL_FAILURES[*]}"
     printf '\n%b\n' "${BOLD}After your first login:${NC}"
-    printf '%s\n' "  • Set the eDP-1 display scale to 1.67 in DMS settings"
-    printf '%s\n' "  • Enable dockerToggle in DMS Plugins and add it to the right side of DankBar"
-    printf '%s\n' "  • Docker group is root-equivalent — don't add untrusted users"
+    printf '%s\n' "  • Set eDP-1 scale to 1.67 in DMS Display settings, then reboot"
+    printf '%s\n' "  • Verify: Chrome opens desktop links; Alacritty is the default terminal"
+    printf '%s\n' "  • Verify: GitHub auth, SSH fetch, and push work"
+    printf '%s\n' "  • Verify: Docker inactive after reboot; DMS widget toggles it; hello-world works without sudo"
+    printf '%s\n' "  • Verify: Niri loads clean; scaling, keybindings, Arabic switch, Nerd Font all work"
+    printf '%s\n' "  • Verify: CLI tools available in a fresh Fish shell (zoxide cd, starship prompt)"
     printf '\n'
 }

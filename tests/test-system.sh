@@ -105,14 +105,17 @@ test_core_packages_include_essentials_and_exclude_bootstrap() {
 }
 
 test_brew_owns_portable_cli_tools() {
-    local formula
+    local formula bin
     for formula in jq stow fd ripgrep tree-sitter-cli bat eza; do
         [[ " ${BREW_FORMULAE[*]} " == *" $formula "* ]] || return 1
     done
-    grep -Fq '$(brew_bin_dir)/jq' <<<"$(declare -f jq_cmd)" || return 1
-    grep -Fq 'PATH="$(brew_bin_dir):$PATH" make' <<<"$(declare -f make_cmd)"
-    [[ -z "$(declare -F stow_cmd)" ]]
-    [[ " ${BREW_FORMULAE[*]} " == *" steipete/tap/codexbar " ]]
+    [[ " ${BREW_FORMULAE[*]} " == *" steipete/tap/codexbar " ]] || return 1
+    bin="$(make_tempdir)"
+    printf '#!/usr/bin/env bash\nprintf jq-from-brew\n' >"$bin/jq"; chmod +x "$bin/jq"
+    printf '#!/usr/bin/env bash\nprintf make-from-brew\n' >"$bin/make"; chmod +x "$bin/make"
+    brew_bin_dir() { printf '%s\n' "$bin"; }
+    [[ "$(jq_cmd 2>/dev/null)" == jq-from-brew ]] || return 1
+    [[ "$(make_cmd 2>/dev/null)" == make-from-brew ]]
 }
 
 run_test "DNF settings are replaced without duplicates" test_dnf_settings_are_replaced_once
