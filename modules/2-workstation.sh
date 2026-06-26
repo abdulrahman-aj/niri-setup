@@ -5,7 +5,7 @@ readonly CORE_PACKAGES=(
     xwayland-satellite libva-intel-driver intel-media-driver alacritty
     xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish make
 )
-readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli steipete/tap/codexbar)
+readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli git-delta steipete/tap/codexbar)
 readonly MISE_TOOLS=(opencode codex claude-code)
 
 source_modules "$ROOT_DIR/modules/workstation"
@@ -36,7 +36,6 @@ run_workstation_phase() {
     configure_xdg_terminal
     configure_niri
     install_niri_edge_indicators
-    configure_git
     ensure_github_auth
     install_dotfiles
     install_fish_plugins

@@ -29,12 +29,6 @@ install_nerd_font() {
     nerd_font_present || { err "JetBrainsMono Nerd Font was not discovered."; return 1; }
 }
 
-configure_git() {
-    git config --global init.defaultBranch main
-    git config --global user.name 'Abdulrahman Ajlouni'
-    git config --global user.email ajlouni2000@gmail.com
-}
-
 ensure_github_auth() {
     local protocol
     gh_cmd auth status &>/dev/null || BROWSER=google-chrome gh_cmd auth login --web --git-protocol ssh
