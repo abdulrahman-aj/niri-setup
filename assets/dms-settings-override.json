@@ -5,6 +5,12 @@
   "lockScreenShowMediaPlayer": false,
   "showWorkspaceIndex": true,
   "showOccupiedWorkspacesOnly": true,
+  "acMonitorTimeout": 600,
+  "acSuspendTimeout": 1800,
+  "batteryMonitorTimeout": 600,
+  "batterySuspendTimeout": 1800,
+  "lockBeforeSuspend": true,
+  "lockScreenPowerOffMonitorsOnLock": true,
   "barConfigs": [
     {
       "id": "default",
