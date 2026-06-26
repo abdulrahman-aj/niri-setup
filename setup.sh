@@ -57,7 +57,7 @@ main() {
     banner "Fedora 44 → Niri + DankMaterialShell + Alacritty"
 
     preflight
-    ( set +e; exec </dev/tty; while true; do sudo -nv 2>/dev/null; sleep 55; done ) &>/dev/null &
+    ( set +e; while true; do sudo -nv 2>/dev/null; sleep 55; done ) &>/dev/null &
     keepalive=$!
     trap 'kill "$keepalive" 2>/dev/null' EXIT
     run_system_phase
