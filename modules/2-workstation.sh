@@ -3,7 +3,7 @@
 
 readonly CORE_PACKAGES=(
     xwayland-satellite libva-intel-driver intel-media-driver alacritty
-    xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish make
+    xdg-terminal-exec wl-clipboard fontconfig xdg-user-dirs which fish make neovim
 )
 readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli git-delta steipete/tap/codexbar)
 readonly MISE_TOOLS=(opencode codex claude-code)

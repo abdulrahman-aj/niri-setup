@@ -5,54 +5,17 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT_DIR/tests/lib.sh"
 
-section "Kickstart.nvim, DMS plugins"
+section "DMS plugins"
 
-test_non_tty_installs_kickstart_and_skips_plugins() {
-    local calls; calls="$(make_tempfile)"
+test_non_tty_skips_dms_plugins() {
     (
         OPTIONAL_SKIPPED=()
         OPTIONAL_FAILURES=()
         stdin_is_tty() { return 1; }
-        install_kickstart() { printf 'kickstart\n' >>"$calls"; }
         install_optional_dms_plugins() { return 1; }
-        offer_kickstart
         offer_dms_plugins
         [[ "${OPTIONAL_SKIPPED[*]}" == 'DMS plugins' ]]
         [[ "${#OPTIONAL_FAILURES[@]}" -eq 0 ]]
-    ) &>/dev/null || return 1
-    [[ "$(cat "$calls")" == kickstart ]] || return 1
-}
-
-test_kickstart_dependencies_are_split_and_exposed() {
-    local home calls; home="$(make_tempdir)"; calls="$(make_tempfile)"
-    mkdir -p "$home/.config/nvim/.git"
-    (
-        REAL_HOME="$home"
-        install_required_group() { printf 'dnf:%s\n' "$*" >>"$calls"; }
-        kickstart_is_expected() { return 0; }
-        brew_tool_present() { [[ "$1" == rg || "$1" == fd || "$1" == tree-sitter ]]; }
-        brew_bin_dir() { printf '/brew/bin\n'; }
-        nvim() { printf 'nvim:%s:path=%s\n' "$*" "$PATH" >>"$calls"; }
-        install_kickstart
-    ) &>/dev/null || return 1
-    grep -Fxq 'dnf:Kickstart.nvim prerequisites gcc git unzip neovim' "$calls" || return 1
-    grep -Fq 'nvim:--headless +qa:path=/brew/bin:' "$calls" || return 1
-    if (
-        REAL_HOME="$home"
-        install_required_group() { :; }
-        brew_tool_present() { [[ "$1" != tree-sitter ]]; }
-        install_kickstart
-    ) &>/dev/null; then
-        return 1
-    fi
-}
-
-test_kickstart_failure_is_nonfatal() {
-    (
-        OPTIONAL_FAILURES=()
-        install_kickstart() { return 1; }
-        offer_kickstart
-        [[ "${OPTIONAL_FAILURES[*]}" == 'Kickstart.nvim' ]]
     ) &>/dev/null
 }
 
@@ -113,9 +76,7 @@ test_plugin_failures_are_nonfatal() {
     ) &>/dev/null
 }
 
-run_test "non-TTY setup installs Kickstart and skips DMS plugins" test_non_tty_installs_kickstart_and_skips_plugins
-run_test "Kickstart dependencies are split between Fedora and Homebrew" test_kickstart_dependencies_are_split_and_exposed
-run_test "Kickstart failure does not fail core setup" test_kickstart_failure_is_nonfatal
+run_test "non-TTY setup skips DMS plugins" test_non_tty_skips_dms_plugins
 run_test "DMS plugins install in TTY mode" test_dms_plugins_install_in_tty
 run_test "existing DMS plugins are skipped" test_existing_dms_plugins_are_skipped
 run_test "failed DMS plugin listing skips installation" test_failed_dms_plugin_list_skips_installation

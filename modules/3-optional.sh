@@ -2,43 +2,6 @@
 
 stdin_is_tty() { [[ -t 0 ]]; }
 
-kickstart_is_expected() {
-    local dir=$1 remote
-    [[ -d "$dir/.git" ]] || return 1
-    remote="$(git -C "$dir" config --get remote.origin.url || true)"
-    [[ "$remote" == https://github.com/nvim-lua/kickstart.nvim.git || "$remote" == git@github.com:nvim-lua/kickstart.nvim.git ]]
-}
-
-install_kickstart() {
-    local config="$REAL_HOME/.config/nvim" stamp path backup_root tool
-    install_required_group "Kickstart.nvim prerequisites" gcc git unzip neovim
-    for tool in rg fd tree-sitter; do
-        brew_tool_present "$tool" || {
-            err "Kickstart.nvim requires the Homebrew tool: ${tool}"
-            return 1
-        }
-    done
-    if ! kickstart_is_expected "$config"; then
-        stamp="$(timestamp)"
-        backup_root="$REAL_HOME/.nvim-backup-$stamp"
-        for path in "$config" "$REAL_HOME/.local/share/nvim" "$REAL_HOME/.local/state/nvim" "$REAL_HOME/.cache/nvim"; do
-            if [[ -e "$path" ]]; then
-                mkdir -p "$backup_root"
-                mv "$path" "$backup_root/$(basename "$(dirname "$path")")-$(basename "$path")"
-            fi
-        done
-        git clone https://github.com/nvim-lua/kickstart.nvim.git "$config"
-    fi
-    PATH="$(brew_bin_dir):$PATH" nvim --headless '+qa'
-}
-
-offer_kickstart() {
-    if ! install_kickstart; then
-        warn "Optional Kickstart.nvim installation failed"
-        OPTIONAL_FAILURES+=("Kickstart.nvim")
-    fi
-}
-
 install_optional_dms_plugins() {
     local plugin output
     if ! output="$(dms_cmd plugins list)"; then
@@ -47,6 +10,7 @@ install_optional_dms_plugins() {
         return 0
     fi
     printf '%s\n' "$output"
+    # shellcheck disable=SC2043
     for plugin in codexBar; do
         info "Third-party DMS registry plugin: ${plugin} (review the source and dependencies shown by DMS)."
         if grep -Eq "^[[:space:]]*ID:[[:space:]]+${plugin}[[:space:]]*$" <<<"$output"; then
@@ -69,7 +33,6 @@ offer_dms_plugins() {
 
 run_optional_phase() {
     step "Finishing touches"
-    offer_kickstart
     offer_dms_plugins
 }
 
