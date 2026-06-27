@@ -1,58 +1,5 @@
 #!/usr/bin/env bash
 
-readonly BREW_BIN="/home/linuxbrew/.linuxbrew/bin/brew"
-
-brew_cmd() { "$BREW_BIN" "$@"; }
-brew_bin_dir() { dirname "$BREW_BIN"; }
-brew_tool_present() { [[ -x "$(brew_bin_dir)/$1" ]]; }
-gh_cmd() { "$(brew_bin_dir)/gh" "$@"; }
-mise_cmd() { "$(brew_bin_dir)/mise" "$@"; }
-jq_cmd() { "$(brew_bin_dir)/jq" "$@"; }
-make_cmd() { PATH="$(brew_bin_dir):$PATH" make "$@"; }
-alacritty_cmd() { alacritty "$@"; }
-system_fish_cmd() { /usr/bin/fish "$@"; }
-
-install_homebrew() { "$ROOT_DIR/bin/install-homebrew"; }
-install_docker()   { "$ROOT_DIR/bin/install-docker"; }
-
-install_brew_formulae() {
-    local formula missing=()
-    for formula in "${BREW_FORMULAE[@]}"; do
-        brew_cmd list --formula "$formula" &>/dev/null || missing+=("$formula")
-    done
-    if ((${#missing[@]})); then
-        brew_cmd install "${missing[@]}"
-    fi
-}
-
-install_mise_tools() {
-    local tool
-    for tool in "${MISE_TOOLS[@]}"; do
-        mise_cmd current "$tool" &>/dev/null || mise_cmd use --global "${tool}@latest"
-    done
-}
-
-install_commands() {
-    local directory="${COMMANDS_DIR:-$ROOT_DIR/bin}" command name first_line found=0
-    for command in "$directory"/*; do
-        [[ -e "$command" ]] || continue
-        found=1
-        if [[ ! -f "$command" || ! -x "$command" ]]; then
-            err "Invalid command in bin/: ${command}"
-            return 1
-        fi
-        IFS= read -r first_line <"$command" || true
-        if [[ "$first_line" != '#!'* ]]; then
-            err "Invalid command in bin/: ${command}"
-            return 1
-        fi
-        name="$(basename "$command")"
-        install_root_symlink_with_backup "$command" "/usr/local/bin/$name"
-    done
-    ((found)) || { err "No commands found in: $directory"; return 1; }
-    log "Repository commands installed"
-}
-
 readonly DANKINSTALL_VERSION="v1.4.6"
 readonly DANKINSTALL_URL="https://github.com/AvengeMedia/DankMaterialShell/releases/download/${DANKINSTALL_VERSION}/dankinstall-amd64.gz"
 readonly DANKINSTALL_SHA256="75f9a528c54f9048baa7994fb701d3c5799bee62cf0c7082a696ab6782df97e4"
@@ -121,17 +68,6 @@ apply_dms_session_override() {
     log "DMS session applied"
 }
 
-install_wallpapers() {
-    local url
-    for url in "${WALLPAPER_URLS[@]}"; do
-        PATH="$(brew_bin_dir):$PATH" "$ROOT_DIR/bin/install-wallpaper" "$url"
-    done
-}
-
-install_core_packages() {
-    install_required_group "workstation essentials" "${CORE_PACKAGES[@]}"
-}
-
 install_niri_fish_completions() {
     local destination="${NIRI_FISH_COMPLETION_FILE:-$REAL_HOME/.local/share/fish/vendor_completions.d/niri.fish}"
     local generated
@@ -160,8 +96,6 @@ configure_xdg_terminal() {
         return 1
     }
 }
-
-user_systemctl_cmd() { systemctl --user "$@"; }
 
 install_niri_edge_indicators() {
     local config="$REAL_HOME/.config/quickshell/niri-edge-indicators"
@@ -216,12 +150,16 @@ configure_niri() {
     fi
 }
 
-set_fish_shell() {
-    [[ "$(getent passwd "$REAL_USER" | cut -d: -f7)" == /usr/bin/fish ]] || s chsh -s /usr/bin/fish "$REAL_USER"
-}
+run_desktop_phase() {
+    step "Configuring your desktop"
 
-create_xdg_dirs() { have_command xdg-user-dirs-update && xdg-user-dirs-update; }
-
-set_graphical_target() {
-    [[ "$(systemctl get-default)" == graphical.target ]] || s systemctl set-default graphical.target
+    run_dankinstall
+    install_dms_greeter
+    apply_dms_settings_override
+    apply_dms_session_override
+    install_wallpapers
+    install_niri_fish_completions
+    configure_xdg_terminal
+    configure_niri
+    install_niri_edge_indicators
 }

@@ -13,12 +13,12 @@ Idempotent installer targeting Fedora 44 / x86_64 / Intel graphics. Designed to 
 | `setup.sh` | Entry point: validates environment, sources modules in order |
 | `install.sh` | Bootstrap: clones/updates managed checkout, then delegates to `setup.sh` |
 | `modules/1-system.sh` | DNF config, timezone, system upgrade, Chrome, debloat |
-| `modules/2-workstation.sh` | Niri, DMS, Alacritty, dev tools — sources `modules/workstation/` |
-| `modules/3-optional.sh` | Optional extras (DMS plugins) — failures never abort |
-| `modules/workstation/` | Submodules: desktop (incl. brew + commands), development, webapps |
+| `modules/2-workstation.sh` | Workstation tools: packages, Homebrew, Mise, commands, webapps, dev tools |
+| `modules/3-desktop.sh` | Desktop phase: DMS + Niri install, greeter, config overrides, Niri config |
+| `modules/4-optional.sh` | Optional extras (DMS plugins) — failures never abort |
 | `lib/common.sh` | Shared logging helpers, `s()` sudo wrapper, guard functions |
 | `lib/git-remote.sh` | Remote-validation helpers used by `update-workstation` |
-| `bin/` | Installed helper scripts: `launch-or-focus`, `launch-or-focus-tui`, `launch-or-focus-webapp`, `install-webapp`, `install-wallpaper`, `install-homebrew`, `install-docker`, `toggle-docker`, `update-workstation` |
+| `bin/` | Installed helper scripts: `launch-or-focus`, `launch-or-focus-tui`, `launch-or-focus-webapp`, `install-webapp`, `install-wallpaper`, `install-homebrew`, `install-docker`, `install-zed`, `install-fonts-jetbrains`, `toggle-docker`, `update-workstation` |
 | `assets/` | Static config: `niri-overrides.kdl`, `dms-settings-override.json`, `niri-edge-indicators/`, `dms-plugins/`, `webapps.json` |
 | `tests/lib.sh` | Shared test framework: `run_test`, `make_tempdir/file`, `assert_*` helpers |
 | `tests/test-*.sh` | TAP-style unit tests split by domain: setup, system, desktop, development, commands, optional |
@@ -39,7 +39,7 @@ update-workstation
 ## Architecture decisions
 
 - **Managed clone** at `~/.local/share/niri-setup` is what live services reference (not `~/Work/niri-setup`). After local changes, sync the managed clone and restart services to verify.
-- **Modules load in numeric order** (`1-system`, `2-workstation`, `3-optional`). System-level ops come first so later modules can rely on installed packages.
+- **Modules load in numeric order** (`1-system`, `2-workstation`, `3-desktop`, `4-optional`). System-level ops come first so later modules can rely on installed packages.
 - **`assets/dms-settings-override.json`** is merged over generated DMS settings on every run to keep repo-managed preferences (e.g. frozen `barConfigs`).
 - **No active-window decorations**: all niri focus cues (dim/ring/border/shadow) are intentionally absent — do not re-add them.
 - **Terminal is Alacritty** — Ghostty was evaluated and rejected (leaked ~1.5 GB idle). Do not reintroduce it.

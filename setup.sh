@@ -51,6 +51,7 @@ main() {
     trap 'kill "$keepalive" 2>/dev/null' EXIT
     run_system_phase
     run_workstation_phase
+    run_desktop_phase
     run_optional_phase
     print_summary
 }

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HOME="${HOME:-$(eval echo ~"${USER:-$(whoami)}")}"
+
+zed_present() { command -v zed &>/dev/null || [[ -x "$HOME/.local/bin/zed" ]]; }
+
+if ! zed_present; then
+    curl -f https://zed.dev/install.sh | sh
+fi
+zed_present || { printf 'Zed installation failed\n' >&2; exit 1; }
