@@ -6,12 +6,6 @@ readonly DEBLOAT_EXACT=(
     gnome-software gnome-software-fedora-langpacks gnome-text-editor
     gnome-logs gnome-characters gnome-system-monitor yelp yelp-libs yelp-xsl
 )
-readonly BOOTSTRAP_PACKAGES=(git pciutils)
-
-install_bootstrap_packages() {
-    install_required_group "bootstrap prerequisites" "${BOOTSTRAP_PACKAGES[@]}"
-}
-
 optimize_dnf() {
     local conf="${DNF_CONF:-/etc/dnf/dnf.conf}" generated
     generated="$(mktemp)"

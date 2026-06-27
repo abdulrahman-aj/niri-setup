@@ -81,7 +81,7 @@ install_niri_fish_completions() {
         err "Generated Niri Fish completions are invalid."
         return 1
     fi
-    install_generated_file_atomically "$generated" "$destination"
+    install_file_atomically_with_backup "$generated" "$destination"
     log "Niri Fish completions installed"
 }
 
