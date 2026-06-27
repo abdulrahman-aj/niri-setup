@@ -19,7 +19,7 @@ test_docker_configures_repo_service_and_group() {
         s() { printf '%s\n' "$*" >>"$calls"; }
         visudo() { return 0; }
         install_root_file_with_backup() {
-            if [[ "$2" == /etc/sudoers.d/docker-toggle ]]; then
+            if [[ "$2" == /etc/sudoers.d/toggle-docker ]]; then
                 grep -Fxq 'tester ALL=(root) NOPASSWD: /usr/bin/systemctl start docker.service docker.socket, /usr/bin/systemctl stop docker.service docker.socket' "$1"
             fi
             printf 'root-file %s %s\n' "$2" "$3" >>"$calls"
@@ -36,8 +36,8 @@ test_docker_configures_repo_service_and_group() {
     grep -Fq 'dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo' "$calls" || return 1
     grep -Fxq 'systemctl disable --now docker.service docker.socket' "$calls" || return 1
     grep -Fxq 'usermod -aG docker tester' "$calls" || return 1
-    grep -Fxq 'root-file /etc/sudoers.d/docker-toggle 0440' "$calls" || return 1
-    grep -Fxq "user-link $ROOT_DIR/assets/dms-plugins/docker-toggle $home/.config/DankMaterialShell/plugins/dockerToggle" "$calls" || return 1
+    grep -Fxq 'root-file /etc/sudoers.d/toggle-docker 0440' "$calls" || return 1
+    grep -Fxq "user-link $ROOT_DIR/assets/dms-plugins/toggle-docker $home/.config/DankMaterialShell/plugins/dockerToggle" "$calls" || return 1
 }
 
 test_docker_orchestration_uses_focused_steps() {
@@ -56,7 +56,7 @@ test_docker_orchestration_uses_focused_steps() {
 
 test_docker_toggle_helper_transitions() {
     local dir state helper
-    dir="$(make_tempdir)"; state="$dir/state"; helper="$ROOT_DIR/bin/docker-toggle"
+    dir="$(make_tempdir)"; state="$dir/state"; helper="$ROOT_DIR/bin/toggle-docker"
     # shellcheck disable=SC2016
     printf '%s\n' '#!/usr/bin/env bash' \
         'state=$DOCKER_TEST_STATE' \
@@ -83,14 +83,14 @@ test_docker_toggle_helper_transitions() {
 }
 
 test_docker_toggle_plugin_contract() {
-    local manifest="$ROOT_DIR/assets/dms-plugins/docker-toggle/plugin.json"
-    local component="$ROOT_DIR/assets/dms-plugins/docker-toggle/DockerToggle.qml"
+    local manifest="$ROOT_DIR/assets/dms-plugins/toggle-docker/plugin.json"
+    local component="$ROOT_DIR/assets/dms-plugins/toggle-docker/DockerToggle.qml"
     assert_file_contains "$manifest" '"id": "dockerToggle"'
     assert_file_contains "$component" 'pillClickAction: () => toggleDocker()'
     assert_file_contains "$component" 'pillRightClickAction: () => openLazydocker()'
-    assert_file_contains "$component" '["/usr/local/bin/docker-toggle", "toggle"]'
-    assert_file_contains "$component" '["/usr/local/bin/tui-launch-or-focus", "lazydocker"]'
-    assert_file_lacks "$component" '["/usr/local/bin/docker-toggle", "start"]'
+    assert_file_contains "$component" '["/usr/local/bin/toggle-docker", "toggle"]'
+    assert_file_contains "$component" '["/usr/local/bin/launch-or-focus-tui", "lazydocker"]'
+    assert_file_lacks "$component" '["/usr/local/bin/toggle-docker", "start"]'
 }
 
 run_test "Docker is installed for on-demand use" test_docker_configures_repo_service_and_group

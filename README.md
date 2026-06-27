@@ -14,7 +14,7 @@ Keeps a managed clone at `~/.local/share/niri-setup`. For local dev: `./setup.sh
 ## Update
 
 ```bash
-workstation-update
+update-workstation
 ```
 
 Resolves the managed clone and reruns `install.sh`. Refuses dirty checkouts or unexpected remotes.

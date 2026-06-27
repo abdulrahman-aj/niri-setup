@@ -11,7 +11,7 @@ install_docker_packages() {
 }
 
 install_docker_toggle() {
-    local sudoers=/etc/sudoers.d/docker-toggle
+    local sudoers=/etc/sudoers.d/toggle-docker
     local plugin_dir="$REAL_HOME/.config/DankMaterialShell/plugins/dockerToggle"
     local temp
     temp="$(mktemp)"
@@ -19,7 +19,7 @@ install_docker_toggle() {
     printf '%s ALL=(root) NOPASSWD: /usr/bin/systemctl start docker.service docker.socket, /usr/bin/systemctl stop docker.service docker.socket\n' "$REAL_USER" >"$temp"
     visudo -cf "$temp" &>/dev/null || { err "Generated Docker sudoers rule is invalid."; return 1; }
     install_root_file_with_backup "$temp" "$sudoers" 0440
-    install_symlink_with_backup "$ROOT_DIR/assets/dms-plugins/docker-toggle" "$plugin_dir"
+    install_symlink_with_backup "$ROOT_DIR/assets/dms-plugins/toggle-docker" "$plugin_dir"
 }
 
 configure_docker_access() {

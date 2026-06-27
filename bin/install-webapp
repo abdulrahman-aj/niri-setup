@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    printf 'Usage: webapp-install <id> <name> <url> <domain>\n' >&2
+    printf 'Usage: install-webapp <id> <name> <url> <domain>\n' >&2
     exit 2
 }
 
@@ -55,7 +55,7 @@ printf '%s\n' \
     'Version=1.0' \
     'Type=Application' \
     "Name=$NAME" \
-    "Exec=/usr/local/bin/webapp-launch-or-focus $ID $URL" \
+    "Exec=/usr/local/bin/launch-or-focus-webapp $ID $URL" \
     "Icon=$icon_name" \
     "StartupWMClass=niri-webapp-$ID" \
     'Terminal=false' \

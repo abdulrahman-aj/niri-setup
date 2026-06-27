@@ -35,5 +35,5 @@ case "${1:-toggle}" in
     start) docker_is_active || docker_start ;;
     stop) if docker_is_active; then docker_stop; fi ;;
     toggle) if docker_is_active; then docker_stop; else docker_start; fi ;;
-    *) printf 'Usage: docker-toggle [status|start|stop|toggle]\n' >&2; exit 2 ;;
+    *) printf 'Usage: toggle-docker [status|start|stop|toggle]\n' >&2; exit 2 ;;
 esac

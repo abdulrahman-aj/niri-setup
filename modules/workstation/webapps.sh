@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-webapp_install_cmd() { /usr/local/bin/webapp-install "$@"; }
+webapp_install_cmd() { /usr/local/bin/install-webapp "$@"; }
 
 install_webapps() {
     local manifest="$ROOT_DIR/assets/webapps.json"

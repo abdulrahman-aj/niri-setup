@@ -23,7 +23,7 @@ PluginComponent {
     }
 
     function openLazydocker() {
-        Quickshell.execDetached(["/usr/local/bin/tui-launch-or-focus", "lazydocker"]);
+        Quickshell.execDetached(["/usr/local/bin/launch-or-focus-tui", "lazydocker"]);
     }
 
     pillClickAction: () => toggleDocker()
@@ -40,7 +40,7 @@ PluginComponent {
 
     Process {
         id: statusProcess
-        command: ["/usr/local/bin/docker-toggle", "status"]
+        command: ["/usr/local/bin/toggle-docker", "status"]
         stdout: StdioCollector {
             onStreamFinished: root.lastStatusOutput = text.trim()
         }
@@ -49,7 +49,7 @@ PluginComponent {
 
     Process {
         id: toggleProcess
-        command: ["/usr/local/bin/docker-toggle", "toggle"]
+        command: ["/usr/local/bin/toggle-docker", "toggle"]
         onExited: (exitCode) => {
             root.refreshStatus();
             if (exitCode === 0)

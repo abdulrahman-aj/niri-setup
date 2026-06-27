@@ -4,7 +4,7 @@
 set -euo pipefail
 
 usage() {
-    printf 'Usage: webapp-launch-or-focus <key> <url>\n' >&2
+    printf 'Usage: launch-or-focus-webapp <key> <url>\n' >&2
     exit 2
 }
 

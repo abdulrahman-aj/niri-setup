@@ -128,10 +128,10 @@ test_entrypoints_and_update_contract() {
 
 test_runtime_commands_and_workstation_modules_are_organized() {
     local command component
-    for command in docker-toggle launch-or-focus tui-launch-or-focus webapp-install webapp-launch-or-focus workstation-update; do
+    for command in toggle-docker launch-or-focus launch-or-focus-tui install-webapp launch-or-focus-webapp update-workstation; do
         [[ -x "$ROOT_DIR/bin/$command" ]] || return 1
     done
-    for command in docker-toggle launch-or-focus-tui launch-or-focus-webapp; do
+    for command in toggle-docker launch-or-focus-tui launch-or-focus-webapp; do
         [[ ! -e "$ROOT_DIR/assets/$command" ]] || return 1
     done
     for component in desktop development commands webapps docker; do

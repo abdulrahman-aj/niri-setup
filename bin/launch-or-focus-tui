@@ -4,7 +4,7 @@
 set -euo pipefail
 
 usage() {
-    printf 'Usage: tui-launch-or-focus <command> [arguments...]\n' >&2
+    printf 'Usage: launch-or-focus-tui <command> [arguments...]\n' >&2
     exit 2
 }
 

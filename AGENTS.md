@@ -4,7 +4,7 @@ Personal automation to bootstrap a fresh Fedora 44 Workstation into a Niri deskt
 
 ## Purpose
 
-Idempotent installer targeting Fedora 44 / x86_64 / Intel graphics. Designed to run both as a one-shot bootstrap (`curl | bash` via `install.sh`) and as a local dev checkout (`./setup.sh`). Updates go through `workstation-update` which resolves the managed clone at `~/.local/share/niri-setup`.
+Idempotent installer targeting Fedora 44 / x86_64 / Intel graphics. Designed to run both as a one-shot bootstrap (`curl | bash` via `install.sh`) and as a local dev checkout (`./setup.sh`). Updates go through `update-workstation` which resolves the managed clone at `~/.local/share/niri-setup`.
 
 ## Key directories
 
@@ -14,11 +14,11 @@ Idempotent installer targeting Fedora 44 / x86_64 / Intel graphics. Designed to 
 | `install.sh` | Bootstrap: clones/updates managed checkout, then delegates to `setup.sh` |
 | `modules/1-system.sh` | DNF config, timezone, system upgrade, Chrome, debloat |
 | `modules/2-workstation.sh` | Niri, DMS, Alacritty, dev tools — sources `modules/workstation/` |
-| `modules/3-optional.sh` | Optional extras (DMS plugins, Kickstart.nvim) — failures never abort |
+| `modules/3-optional.sh` | Optional extras (DMS plugins) — failures never abort |
 | `modules/workstation/` | Submodules: commands, desktop, development, docker, webapps |
 | `lib/common.sh` | Shared logging helpers, `s()` sudo wrapper, guard functions |
-| `lib/git-remote.sh` | Remote-validation helpers used by `workstation-update` |
-| `bin/` | Installed helper scripts: `launch-or-focus`, `webapp-*`, `docker-toggle`, `workstation-update`, `tui-launch-or-focus` |
+| `lib/git-remote.sh` | Remote-validation helpers used by `update-workstation` |
+| `bin/` | Installed helper scripts: `launch-or-focus`, `launch-or-focus-tui`, `launch-or-focus-webapp`, `install-webapp`, `toggle-docker`, `update-workstation`, `install-wallpaper` |
 | `assets/` | Static config: `niri-overrides.kdl`, `dms-settings-override.json`, `niri-edge-indicators/`, `dms-plugins/`, `webapps.json` |
 | `tests/lib.sh` | Shared test framework: `run_test`, `make_tempdir/file`, `assert_*` helpers |
 | `tests/test-*.sh` | TAP-style unit tests split by domain: setup, system, desktop, development, commands, optional |
@@ -33,7 +33,7 @@ make
 ./setup.sh
 
 # Update from managed clone
-workstation-update
+update-workstation
 ```
 
 ## Architecture decisions
