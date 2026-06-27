@@ -13,6 +13,7 @@ REAL_HOME=""
 FEDORA_VERSION=""
 OPTIONAL_FAILURES=()
 OPTIONAL_SKIPPED=()
+keepalive=""
 
 source_required() {
     local file=$1
@@ -47,7 +48,7 @@ main() {
 
     preflight
     ( while true; do sudo -v; sleep 240; done ) &>/dev/null &
-    local keepalive=$!
+    keepalive=$!
     trap 'kill "$keepalive" 2>/dev/null' EXIT
     run_system_phase
     run_workstation_phase
