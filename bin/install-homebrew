@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BREW_BIN="${BREW_BIN:-/home/linuxbrew/.linuxbrew/bin/brew}"
+# shellcheck disable=SC2016
+SHELLENV_LINE='eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'
+
+if [[ ! -x "$BREW_BIN" ]]; then
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    [[ -x "$BREW_BIN" ]] || { printf 'Homebrew installation failed\n' >&2; exit 1; }
+    printf 'Homebrew installed\n'
+fi
+
+bashrc="${HOME}/.bashrc"
+touch "$bashrc"
+if ! grep -Fqx "$SHELLENV_LINE" "$bashrc"; then
+    tmp="$(mktemp)"
+    trap 'rm -f "$tmp"' EXIT
+    cat "$bashrc" >"$tmp"
+    printf '\n%s\n' "$SHELLENV_LINE" >>"$tmp"
+    install -m 0644 "$tmp" "$bashrc"
+fi

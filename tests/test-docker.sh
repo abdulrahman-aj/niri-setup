@@ -5,53 +5,32 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT_DIR/tests/lib.sh"
 
-section "Docker installation, toggle, and DMS plugin"
+section "Docker install script, toggle, and DMS plugin"
 
-test_docker_configures_repo_service_and_group() {
-    local calls home
-    calls="$(make_tempfile)"; home="$(make_tempdir)"
-    (
-        REAL_USER=tester
-        REAL_HOME="$home"
-        rpm() { return 1; }
-        dnf() { return 0; }
-        id() { [[ "$1" == -nG ]] && printf 'tester wheel\n'; }
-        s() { printf '%s\n' "$*" >>"$calls"; }
-        visudo() { return 0; }
-        install_root_file_with_backup() {
-            if [[ "$2" == /etc/sudoers.d/toggle-docker ]]; then
-                grep -Fxq 'tester ALL=(root) NOPASSWD: /usr/bin/systemctl start docker.service docker.socket, /usr/bin/systemctl stop docker.service docker.socket' "$1"
-            fi
-            printf 'root-file %s %s\n' "$2" "$3" >>"$calls"
-        }
-        install_symlink_with_backup() { printf 'user-link %s %s\n' "$1" "$2" >>"$calls"; }
-        systemctl() {
-            case "$1" in
-                is-enabled) printf 'disabled\n'; return 1 ;;
-                is-active) return 3 ;;
-            esac
-        }
-        install_docker
-    ) &>/dev/null
-    grep -Fq 'dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo' "$calls" || return 1
-    grep -Fxq 'systemctl disable --now docker.service docker.socket' "$calls" || return 1
-    grep -Fxq 'usermod -aG docker tester' "$calls" || return 1
-    grep -Fxq 'root-file /etc/sudoers.d/toggle-docker 0440' "$calls" || return 1
-    grep -Fxq "user-link $ROOT_DIR/assets/dms-plugins/toggle-docker $home/.config/DankMaterialShell/plugins/dockerToggle" "$calls" || return 1
-}
+test_install_docker_script() {
+    local dir home sudoers plugin_dir
+    dir="$(make_tempdir)"; home="$(make_tempdir)"
+    sudoers="$dir/sudoers"; plugin_dir="$home/plugins/dockerToggle"
 
-test_docker_orchestration_uses_focused_steps() {
-    local calls; calls="$(make_tempfile)"
-    (
-        warn() { :; }
-        enable_docker_repository() { printf '%s\n' repository >>"$calls"; }
-        install_docker_packages() { printf '%s\n' packages >>"$calls"; }
-        install_docker_toggle() { printf '%s\n' toggle >>"$calls"; }
-        configure_docker_access() { printf '%s\n' access >>"$calls"; }
-        verify_docker_disabled() { printf '%s\n' verify >>"$calls"; }
-        install_docker
-    )
-    [[ "$(tr '\n' ' ' <"$calls")" == 'repository packages toggle access verify ' ]]
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$dir/dnf"
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$dir/visudo"
+    printf '%s\n' '#!/usr/bin/env bash' 'exec "$@"' >"$dir/sudo"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        'case "$*" in' \
+        '  is-enabled*) printf "disabled\n"; exit 1 ;;' \
+        '  is-active*) exit 3 ;;' \
+        'esac' >"$dir/systemctl"
+    printf '%s\n' '#!/usr/bin/env bash' 'printf "tester wheel\n"' >"$dir/id"
+    printf '%s\n' '#!/usr/bin/env bash' >"$dir/usermod"
+    chmod +x "$dir/dnf" "$dir/visudo" "$dir/sudo" "$dir/systemctl" "$dir/id" "$dir/usermod"
+
+    env HOME="$home" USER=tester ROOT_DIR="$ROOT_DIR" \
+        SUDOERS="$sudoers" PLUGIN_DIR="$plugin_dir" \
+        PATH="$dir:/usr/bin:/bin" \
+        bash "$ROOT_DIR/bin/install-docker" &>/dev/null || return 1
+
+    assert_file_contains "$sudoers" 'tester ALL=(root) NOPASSWD: /usr/bin/systemctl start docker.service docker.socket'
+    [[ -L "$plugin_dir" && "$(readlink "$plugin_dir")" == "$ROOT_DIR/assets/dms-plugins/toggle-docker" ]]
 }
 
 test_docker_toggle_helper_transitions() {
@@ -93,8 +72,7 @@ test_docker_toggle_plugin_contract() {
     assert_file_lacks "$component" '["/usr/local/bin/toggle-docker", "start"]'
 }
 
-run_test "Docker is installed for on-demand use" test_docker_configures_repo_service_and_group
-run_test "Docker setup delegates to focused steps" test_docker_orchestration_uses_focused_steps
+run_test "install-docker configures repo, packages, sudoers, plugin, and access" test_install_docker_script
 run_test "Docker toggle changes daemon state safely" test_docker_toggle_helper_transitions
 run_test "Docker toggle DMS plugin has expected actions" test_docker_toggle_plugin_contract
 

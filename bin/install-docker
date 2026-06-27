@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "$(realpath "$0")")/.." && pwd)}"
+USER="${USER:-$(whoami)}"
+HOME="${HOME:-$(eval echo ~"$USER")}"
+SUDOERS="${SUDOERS:-/etc/sudoers.d/toggle-docker}"
+PLUGIN_DIR="${PLUGIN_DIR:-$HOME/.config/DankMaterialShell/plugins/dockerToggle}"
+
+if ! dnf repolist 2>/dev/null | grep -Eq '^docker-ce-stable([[:space:]]|$)'; then
+    sudo dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
+fi
+
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+printf '%s ALL=(root) NOPASSWD: /usr/bin/systemctl start docker.service docker.socket, /usr/bin/systemctl stop docker.service docker.socket\n' "$USER" >"$tmp"
+visudo -cf "$tmp" &>/dev/null || { printf 'Generated Docker sudoers rule is invalid\n' >&2; exit 1; }
+sudo install -m 0440 "$tmp" "$SUDOERS"
+
+mkdir -p "$(dirname "$PLUGIN_DIR")"
+ln -sfn "$ROOT_DIR/assets/dms-plugins/toggle-docker" "$PLUGIN_DIR"
+
+sudo systemctl disable --now docker.service docker.socket
+if ! id -nG "$USER" | tr ' ' '\n' | grep -Fxq docker; then
+    sudo usermod -aG docker "$USER"
+fi
+
+[[ "$(systemctl is-enabled docker.service 2>/dev/null || true)" == disabled ]] || { printf 'docker.service is not disabled\n' >&2; exit 1; }
+[[ "$(systemctl is-enabled docker.socket 2>/dev/null || true)" == disabled ]] || { printf 'docker.socket is not disabled\n' >&2; exit 1; }
+! systemctl is-active --quiet docker.service || { printf 'docker.service is active\n' >&2; exit 1; }
+! systemctl is-active --quiet docker.socket || { printf 'docker.socket is active\n' >&2; exit 1; }

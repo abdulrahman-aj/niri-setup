@@ -7,28 +7,25 @@ source "$ROOT_DIR/tests/lib.sh"
 
 section "Homebrew, brew formulae, mise"
 
-test_homebrew_missing_and_healthy_branches() {
-    local home calls
-    home="$(make_tempdir)"; calls="$(make_tempfile)"; : >"$home/.bashrc"
-    (
-        REAL_HOME="$home"
-        state=missing
-        homebrew_present() { [[ "$state" == healthy ]]; }
-        run_homebrew_installer() { printf 'installer\n' >>"$calls"; state=healthy; }
-        backup_path() { :; }
-        install_homebrew
-    )
-    assert_ok grep -Fxq installer "$calls"
-    assert_file_contains "$home/.bashrc" '/home/linuxbrew/.linuxbrew/bin/brew shellenv'
-    : >"$calls"
-    (
-        REAL_HOME="$home"
-        homebrew_present() { return 0; }
-        run_homebrew_installer() { return 1; }
-        install_homebrew
-    )
-    [[ ! -s "$calls" ]] || fail_assert "installer ran when Homebrew already healthy"
+test_install_homebrew_script() {
+    local dir fake_brew
+    dir="$(make_tempdir)"; fake_brew="$dir/brew"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        "printf '#!/usr/bin/env bash\n' >'$fake_brew'" \
+        "chmod +x '$fake_brew'" >"$dir/curl"
+    chmod +x "$dir/curl"
+
+    env HOME="$dir" BREW_BIN="$fake_brew" PATH="$dir:$PATH" \
+        bash "$ROOT_DIR/bin/install-homebrew" &>/dev/null || return 1
+    [[ -x "$fake_brew" ]] || return 1
+    assert_file_contains "$dir/.bashrc" '/home/linuxbrew/.linuxbrew/bin/brew shellenv'
+
+    local before; before="$(wc -l <"$dir/.bashrc")"
+    env HOME="$dir" BREW_BIN="$fake_brew" PATH="/usr/bin:/bin" \
+        bash "$ROOT_DIR/bin/install-homebrew" &>/dev/null || return 1
+    assert_eq "$(wc -l <"$dir/.bashrc")" "$before"
 }
+
 
 test_brew_installs_only_missing_formulae() {
     local calls; calls="$(make_tempfile)"
@@ -61,7 +58,7 @@ test_mise_installs_only_missing_tools() {
     assert_eq "$(wc -l <"$calls")" 1
 }
 
-run_test "Homebrew handles missing and healthy installations" test_homebrew_missing_and_healthy_branches
+run_test "install-homebrew installs binary and sets up .bashrc idempotently" test_install_homebrew_script
 run_test "Brew installs only missing formulae" test_brew_installs_only_missing_formulae
 run_test "Mise installs only missing global tools" test_mise_installs_only_missing_tools
 

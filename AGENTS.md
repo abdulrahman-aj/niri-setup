@@ -15,10 +15,10 @@ Idempotent installer targeting Fedora 44 / x86_64 / Intel graphics. Designed to 
 | `modules/1-system.sh` | DNF config, timezone, system upgrade, Chrome, debloat |
 | `modules/2-workstation.sh` | Niri, DMS, Alacritty, dev tools — sources `modules/workstation/` |
 | `modules/3-optional.sh` | Optional extras (DMS plugins) — failures never abort |
-| `modules/workstation/` | Submodules: commands, desktop, development, docker, webapps |
+| `modules/workstation/` | Submodules: desktop (incl. brew + commands), development, webapps |
 | `lib/common.sh` | Shared logging helpers, `s()` sudo wrapper, guard functions |
 | `lib/git-remote.sh` | Remote-validation helpers used by `update-workstation` |
-| `bin/` | Installed helper scripts: `launch-or-focus`, `launch-or-focus-tui`, `launch-or-focus-webapp`, `install-webapp`, `toggle-docker`, `update-workstation`, `install-wallpaper` |
+| `bin/` | Installed helper scripts: `launch-or-focus`, `launch-or-focus-tui`, `launch-or-focus-webapp`, `install-webapp`, `install-wallpaper`, `install-homebrew`, `install-docker`, `toggle-docker`, `update-workstation` |
 | `assets/` | Static config: `niri-overrides.kdl`, `dms-settings-override.json`, `niri-edge-indicators/`, `dms-plugins/`, `webapps.json` |
 | `tests/lib.sh` | Shared test framework: `run_test`, `make_tempdir/file`, `assert_*` helpers |
 | `tests/test-*.sh` | TAP-style unit tests split by domain: setup, system, desktop, development, commands, optional |
