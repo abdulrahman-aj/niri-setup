@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+WALLPAPERS_DIR="${WALLPAPERS_DIR:-$HOME/.local/share/wallpapers}"
+SESSION="${SESSION:-$HOME/.local/state/DankMaterialShell/session.json}"
+
+source="${1:?Usage: install-wallpaper <url-or-path>}"
+filename="${source##*/}"
+dest="$WALLPAPERS_DIR/$filename"
+
+mkdir -p "$WALLPAPERS_DIR"
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+if [[ "$source" == http* ]]; then
+    if [[ ! -f "$dest" ]]; then
+        printf 'Downloading: %s\n' "$filename"
+        curl -fsSL "$source" -o "$tmpdir/$filename"
+        install -m 0644 "$tmpdir/$filename" "$dest"
+    fi
+elif [[ ! -f "$dest" ]]; then
+    install -m 0644 "$source" "$dest"
+fi
+
+current="{}"
+[[ -f "$SESSION" ]] && current="$(cat "$SESSION")"
+mkdir -p "$(dirname "$SESSION")"
+# shellcheck disable=SC2016
+jq -n --arg p "$dest" --argjson c "$current" '$c + {"wallpaperPath": $p}' >"$tmpdir/session.json"
+install -m 0644 "$tmpdir/session.json" "$SESSION"
+printf 'Wallpaper set: %s\n' "$filename"

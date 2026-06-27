@@ -66,9 +66,9 @@ test_dms_plugins_install_in_tty() {
         }
         offer_dms_plugins
     ) &>/dev/null
-    assert_eq "$(grep -c '^plugins install ' "$calls")" 2
+    assert_eq "$(grep -c '^plugins install ' "$calls")" 1
     assert_ok grep -Fxq 'plugins install codexBar' "$calls"
-    assert_ok grep -Fxq 'plugins install wallpaperDiscovery' "$calls"
+    assert_file_lacks "$calls" 'wallpaperDiscovery'
     assert_file_lacks "$calls" 'dockerManager'
 }
 
@@ -78,7 +78,7 @@ test_existing_dms_plugins_are_skipped() {
         OPTIONAL_FAILURES=()
         dms() {
             if [[ "$*" == 'plugins list' ]]; then
-                printf '  CodexBar\n    ID: codexBar\n  Wallpaper Discovery\n    ID: wallpaperDiscovery\n'
+                printf '  CodexBar\n    ID: codexBar\n'
             else
                 printf '%s\n' "$*" >>"$calls"
             fi
@@ -109,7 +109,7 @@ test_plugin_failures_are_nonfatal() {
         stdin_is_tty() { return 0; }
         dms() { [[ "$*" == 'plugins list' ]]; }
         offer_dms_plugins
-        [[ "${#OPTIONAL_FAILURES[@]}" -eq 2 ]]
+        [[ "${#OPTIONAL_FAILURES[@]}" -eq 1 ]]
     ) &>/dev/null
 }
 

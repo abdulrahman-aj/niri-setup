@@ -47,7 +47,7 @@ install_optional_dms_plugins() {
         return 0
     fi
     printf '%s\n' "$output"
-    for plugin in codexBar wallpaperDiscovery; do
+    for plugin in codexBar; do
         info "Third-party DMS registry plugin: ${plugin} (review the source and dependencies shown by DMS)."
         if grep -Eq "^[[:space:]]*ID:[[:space:]]+${plugin}[[:space:]]*$" <<<"$output"; then
             log "DMS plugin already installed: ${plugin}"

@@ -35,27 +35,44 @@ install_dms_greeter() {
     log "Login screen ready"
 }
 
-apply_dms_settings_override() {
-    local settings="$REAL_HOME/.config/DankMaterialShell/settings.json"
-    local override="${DMS_SETTINGS_OVERRIDE:-$ROOT_DIR/assets/dms-settings-override.json}" generated
-    [[ -f "$settings" ]] || { err "DMS settings do not exist: ${settings}"; return 1; }
-    [[ -f "$override" ]] || { err "DMS settings override does not exist: ${override}"; return 1; }
-    jq_cmd -e 'type == "object"' "$settings" &>/dev/null || {
-        err "DMS settings must contain a valid JSON object: ${settings}"
-        return 1
-    }
+apply_json_override() {
+    local base=$1 override=$2 current generated
+    [[ -f "$override" ]] || { err "Override file does not exist: ${override}"; return 1; }
     jq_cmd -e 'type == "object"' "$override" &>/dev/null || {
-        err "DMS settings override must contain a valid JSON object: ${override}"
+        err "Override must be a valid JSON object: ${override}"
         return 1
     }
+    current="{}"
+    [[ -f "$base" ]] && current="$(cat "$base")"
     generated="$(mktemp)"
     trap 'rm -f "${generated:-}"; trap - RETURN' RETURN
-    jq_cmd -s '.[0] * .[1]' "$settings" "$override" >"$generated" || {
-        err "Failed to merge DMS settings."
+    # shellcheck disable=SC2016
+    jq_cmd -n --argjson b "$current" --slurpfile o "$override" '$b * $o[0]' >"$generated" || {
+        err "Failed to merge ${override} into ${base}"
         return 1
     }
-    install_file_atomically_with_backup "$generated" "$settings"
+    install_file_atomically_with_backup "$generated" "$base"
+}
+
+apply_dms_settings_override() {
+    local settings="$REAL_HOME/.config/DankMaterialShell/settings.json"
+    [[ -f "$settings" ]] || { err "DMS settings do not exist: ${settings}"; return 1; }
+    apply_json_override "$settings" "${DMS_SETTINGS_OVERRIDE:-$ROOT_DIR/assets/dms-settings-override.json}" || return 1
     log "DMS settings applied"
+}
+
+apply_dms_session_override() {
+    apply_json_override \
+        "$REAL_HOME/.local/state/DankMaterialShell/session.json" \
+        "${DMS_SESSION_OVERRIDE:-$ROOT_DIR/assets/dms-session-override.json}" || return 1
+    log "DMS session applied"
+}
+
+install_wallpapers() {
+    local url
+    for url in "${WALLPAPER_URLS[@]}"; do
+        PATH="$(brew_bin_dir):$PATH" "$ROOT_DIR/bin/install-wallpaper" "$url"
+    done
 }
 
 install_core_packages() {

@@ -145,6 +145,24 @@ test_invalid_dms_json_preserves_settings() {
     [[ "$(sha256sum "$home/.config/DankMaterialShell/settings.json")" == "$digest" ]]
 }
 
+test_dms_session_override_enables_cycling() {
+    local override="$ROOT_DIR/assets/dms-session-override.json"
+    jq -e '.wallpaperCyclingEnabled == true and .wallpaperCyclingInterval == 3600' "$override" &>/dev/null
+}
+
+test_dms_session_override_creates_session_when_missing() {
+    local home override
+    home="$(make_tempdir)"; override="$(make_tempfile)"
+    printf '{"wallpaperCyclingEnabled":true,"wallpaperCyclingInterval":3600}\n' >"$override"
+    (
+        REAL_HOME="$home"
+        DMS_SESSION_OVERRIDE="$override"
+        apply_dms_session_override
+    ) &>/dev/null || return 1
+    jq -e '.wallpaperCyclingEnabled == true and .wallpaperCyclingInterval == 3600' \
+        "$home/.local/state/DankMaterialShell/session.json" &>/dev/null
+}
+
 test_niri_override_neutralizes_dangerous_defaults() {
     # Fear: a surprising/destructive default bind survives, or a window rule forces
     # fullscreen. The non-destructive nav/app shortcuts are not mirrored here.
@@ -243,6 +261,8 @@ run_test "DMS settings override merges safely and idempotently" test_dms_setting
 run_test "DMS settings override hides lock screen media player" test_dms_settings_override_hides_lock_screen_media_player
 run_test "DMS settings override freezes the DankBar layout" test_dms_settings_override_freezes_dankbar_layout
 run_test "invalid DMS JSON preserves existing settings" test_invalid_dms_json_preserves_settings
+run_test "DMS session override enables hourly wallpaper cycling" test_dms_session_override_enables_cycling
+run_test "DMS session override creates session.json when missing" test_dms_session_override_creates_session_when_missing
 run_test "Niri override neutralizes dangerous default binds" test_niri_override_neutralizes_dangerous_defaults
 run_test "edge indicator show-logic and click/hover wiring" test_edge_indicator_wiring
 run_test "Niri edge indicators install idempotently" test_niri_edge_indicators_are_installed_idempotently

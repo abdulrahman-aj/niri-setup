@@ -7,6 +7,12 @@ readonly CORE_PACKAGES=(
 )
 readonly BREW_FORMULAE=(starship lazygit lazydocker fzf bat eza ripgrep gh mise tlrc zoxide jq stow fd tree-sitter-cli git-delta steipete/tap/codexbar)
 readonly MISE_TOOLS=(opencode codex claude-code)
+readonly WALLPAPER_URLS=(
+    "https://raw.githubusercontent.com/dharmx/walls/main/nord/a_mountain_range_with_snow_on_top.jpg"
+    "https://raw.githubusercontent.com/dharmx/walls/main/nord/a_video_game_graphics_of_a_forest_and_a_lake.png"
+    "https://raw.githubusercontent.com/dharmx/walls/main/digital/a_road_with_trees_and_a_mountain_in_the_background.png"
+    "https://raw.githubusercontent.com/dharmx/walls/main/nord/a_waterfall_with_trees_and_leaves.jpg"
+)
 
 source_modules "$ROOT_DIR/modules/workstation"
 
@@ -29,6 +35,8 @@ run_workstation_phase() {
     install_commands
     install_webapps
     apply_dms_settings_override
+    apply_dms_session_override
+    install_wallpapers
     install_niri_fish_completions
     install_zed
     install_nerd_font
